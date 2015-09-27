@@ -357,18 +357,6 @@ public final class LuaJavaAPI
 						L.pushObjectValue(entry.getValue());
 						L.setTable(-3);
 					}
-					/*
-					 HashMap hm=(HashMap)obj;
-					 Iterator iter = hm.entrySet().iterator();
-					 while (iter.hasNext())
-					 {
-					 Map.Entry entry = (Map.Entry) iter.next();
-					 L.pushObjectValue(entry.getKey());
-					 L.pushObjectValue(entry.getValue());
-					 L.setTable(-3);
-					 }
-					 */
-
 				}
 				L.pushValue(-1);
 				return 1;
@@ -489,8 +477,7 @@ public final class LuaJavaAPI
 		{
 			if (clazz.isInterface())
 			{
-				String implem = clazz.getName();
-				return createProxyObject(L, implem);
+				return createProxyObject(L, clazz);
 			}
 			else
 			{
@@ -780,7 +767,8 @@ public final class LuaJavaAPI
 			Object ret = null;
 			try
 			{
-				field.setAccessible(true);
+				if (!Modifier.isPublic(field.getModifiers()))
+					field.setAccessible(true);
 				ret = field.get(obj);
 			}
 			catch (Exception e)
@@ -857,58 +845,6 @@ public final class LuaJavaAPI
 			}
 			if (mlist.length == 0)
 				return 0;
-			//L.pushString(methodName);
-			//L.pushLightJavaObject(mlist);
-			return 2;
-		}
-	}
-	public static int checkDeclaredMethod(LuaState L, Object obj, String methodName) throws LuaException
-	{
-		synchronized (L)
-		{
-			Class clazz;
-			boolean isClass = false;
-			if (obj instanceof Class)
-			{
-				clazz = (Class) obj;
-				isClass = true;
-			}
-			else
-			{
-				clazz = obj.getClass();
-			}
-
-			Method[] methods = clazz.getDeclaredMethods();
-			ArrayList<Method> list = new ArrayList<Method>();
-
-			for (int i = 0; i < methods.length; i++)
-			{
-				if (methods[i].getName().equals(methodName))
-				{
-					if (isClass && !Modifier.isStatic(methods[i].getModifiers()))
-						continue;
-					list.add(methods[i]);
-				}
-			}
-
-			if (list.isEmpty() && isClass)
-			{
-				methods = clazz.getClass().getMethods();
-				for (int i = 0; i < methods.length; i++)
-				{
-					if (methods[i].getName().equals(methodName))
-						list.add(methods[i]);
-				}
-
-			}
-
-			if (list.isEmpty())
-				return 0;
-
-			Method[] mlist = new Method[list.size()];
-			list.toArray(mlist);
-			L.pushString(methodName);
-			L.pushJavaObject(mlist);
 			return 2;
 		}
 	}
@@ -1022,7 +958,7 @@ public final class LuaJavaAPI
 			}
 			catch (Exception e)
 			{
-				return 0;
+				throw new LuaException(e);
 			}
 
 			L.pushObjectValue(ret);
@@ -1035,10 +971,8 @@ public final class LuaJavaAPI
 		synchronized (L)
 		{
 			Class clazz;
-			Object value = null;
+			boolean isClass = false;
 
-			Method method=null;
-			boolean isClass = false;	
 			if (obj instanceof Class)
 			{
 				clazz = (Class) obj;
@@ -1049,112 +983,118 @@ public final class LuaJavaAPI
 				clazz = obj.getClass();
 			}
 
-			if (methodName.equals("onClick"))
+			String className=clazz.getName();
+			Method[] methods = methodsMap.get(className);
+			if (methods == null)
 			{
-				Object listener;
-				try
+				methods = clazz.getMethods();
+				methodsMap.put(className, methods);
+			}
+
+			if (methodName.substring(0, 2).equals("on") && L.type(-1) == LuaState.LUA_TFUNCTION)		
+				return javaSetListener(L, obj, methodName, methods, isClass);
+
+			return javaSetMethod(L, obj, methodName, methods, isClass);
+
+		}
+	}
+
+	private static int javaSetListener(LuaState L, Object obj, String methodName, Method[] methods , boolean isClass) throws LuaException
+	{
+		synchronized (L)
+		{
+			String name="setOn" + methodName.substring(2) + "Listener";
+			for (Method m:methods)
+			{
+				if (!m.getName().equals(name))
+					continue;
+				if (isClass && !Modifier.isStatic(m.getModifiers()))
+					continue;
+
+				Class<?>[] tp=m.getParameterTypes();
+				if (tp.length == 1 && tp[0].isInterface())
 				{
-					Method method2 = clazz.getMethod("setOnClickListener", new Class[]{android.view.View.OnClickListener.class});
-					if (L.type(-1) == LuaState.LUA_TFUNCTION)
+					L.newTable();
+					L.pushValue(-2);
+					L.setField(-2, methodName);
+					try
 					{
-						L.newTable();
-						L.pushValue(-2);
-						L.setField(-2, "onClick");
-						listener = L.getLuaObject(-1).createProxy("android.view.View$OnClickListener");
-						try
-						{
-							method2.invoke(obj, new Object[]{listener});
-							return 1;
-						}
-						catch (InvocationTargetException e)
-						{}
-						catch (IllegalAccessException e)
-						{}
-						catch (IllegalArgumentException e)
-						{}
+						Object listener = L.getLuaObject(-1).createProxy(tp[0]);
+						m.invoke(obj, new Object[]{listener});
+						return 1;
+					}
+					catch (Exception e)
+					{
+						throw new LuaException(e);
+					}					
+				}
+			}			
+		}
+		return 0;
+	}
+
+	private static int javaSetMethod(LuaState L, Object obj, String methodName, Method[] methods , boolean isClass) throws LuaException
+	{
+		synchronized (L)
+		{	
+			String name="set" + methodName;
+			Object arg = null;
+			for (Method m:methods)
+			{
+				if (!m.getName().equals(name))
+					continue;
+				if (isClass && !Modifier.isStatic(m.getModifiers()))
+					continue;
+
+				Class<?>[] tp=m.getParameterTypes();
+				if (tp.length == 1)
+				{
+
+					try
+					{
+						arg = compareTypes(L, tp[0], -1);
+					}
+					catch (LuaException e)
+					{
+						continue;
+					}
+											
+					try
+					{
+						m.invoke(obj, new Object[]{arg});
+						return 1;
+					}
+					catch (Exception e)
+					{
+						throw new LuaException(e);
 					}
 				}
-				catch (NoSuchMethodException e)
-				{}
-				catch (LuaException e)
-				{}
-				catch (ClassNotFoundException e)
-				{}	
 			}
+		}
+		return 0;
+	}
 
+	private static int createProxyObject(LuaState L, String implem)
+	throws LuaException
+	{
+		synchronized (L)
+		{
 			try
 			{
-				switch (L.type(3))
-				{
-					case LuaState.LUA_TBOOLEAN:
-						method = clazz.getMethod("set" + methodName, boolean.class);
-						value = L.toBoolean(3);
-						break;
-					case LuaState.LUA_TNUMBER:
-						try
-						{
-							method = clazz.getMethod("set" + methodName, int.class);
-							value = (int)L.toInteger(3);
-						}
-						catch (NoSuchMethodException e)
-						{
-							method = clazz.getMethod("set" + methodName, float.class);
-							value = (float)L.toNumber(3);
-						}
-						break;
-					case LuaState.LUA_TSTRING:
-						try
-						{
-							method = clazz.getMethod("set" + methodName, CharSequence.class);
-						}
-						catch (NoSuchMethodException e)
-						{
-							method = clazz.getMethod("set" + methodName, String.class);
-						}
-						value = L.toString(3);
-						break;
-					default:
-						value = L.toJavaObject(3);
-						Class type=value.getClass();
-						while (true)
-						{
-							try
-							{
-								method = clazz.getMethod("set" + methodName, type);
-								break;
-							}
-							catch (NoSuchMethodException e)
-							{
-								type = type.getSuperclass();
-								if (type == null)
-									return 0;
-							}
-						}
-				}
-			}
-			catch (NoSuchMethodException e)
-			{
-				return 0;
-			}
-
-			if (isClass && !Modifier.isStatic(method.getModifiers()))
-				return 0;
-
-			try
-			{
-				method.invoke(obj, value);
+				LuaObject luaObj = L.getLuaObject(2);
+				Object proxy = luaObj.createProxy(implem);
+				L.pushJavaObject(proxy);
 			}
 			catch (Exception e)
 			{
-				return 0;
+				throw new LuaException(e);
 			}
 
-			//L.pushObjectValue(ret);
 			return 1;
 		}
 	}
 
-	public static int createProxyObject(LuaState L, String implem)
+	private static int createProxyObject(LuaState L, Class implem)
 	throws LuaException
 	{
 		synchronized (L)
@@ -1349,9 +1289,16 @@ public final class LuaJavaAPI
 				break;
 			case 3: //number
 				{
-					Double db = new Double(L.toNumber(idx));
-
-					obj = LuaState.convertLuaNumber(db, parameter);
+					if (L.isInteger(idx))
+					{
+						Long lg = new Long(L.toInteger(idx));
+						obj = LuaState.convertLuaNumber(lg, parameter);					
+					}
+					else
+					{
+						Double db = new Double(L.toNumber(idx));
+						obj = LuaState.convertLuaNumber(db, parameter);
+					}
 					if (obj == null)
 					{
 						okType = false;
