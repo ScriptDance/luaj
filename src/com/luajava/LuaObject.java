@@ -577,4 +577,20 @@ public class LuaObject
 			return Proxy.newProxyInstance(this.getClass().getClassLoader(), interfaces, handler);
 		}
 	}
+	
+	public Object createProxy(Class implem) throws LuaException
+	{
+		synchronized (L)
+		{
+			if (!isTable())
+				throw new LuaException("Invalid Object. Must be Table.");
+
+			Class[] interfaces = new Class[]{implem};
+
+			InvocationHandler handler = new LuaInvocationHandler(this);
+
+			return Proxy.newProxyInstance(this.getClass().getClassLoader(), interfaces, handler);
+		}
+	}
+	
 }
