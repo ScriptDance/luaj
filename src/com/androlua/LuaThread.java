@@ -11,7 +11,6 @@ public class LuaThread extends Thread implements Runnable
 	private LuaState L;
 	private Handler thandler;
 	public boolean isRun = false;
-	private StringBuilder output = new StringBuilder();
 	private String luaDir;
 	private Main mMain;
 
@@ -27,20 +26,20 @@ public class LuaThread extends Thread implements Runnable
 
 	public LuaThread(Main main, String src) throws LuaException
 	{
-		this(main, src, new Object[0], false);
+		this(main, src, false,null);
 	}
 
 	public LuaThread(Main main, String src, Object[] arg) throws LuaException
 	{
-		this(main, src, arg, false);
+		this(main, src, false, arg);
 	}
 
 	public LuaThread(Main main, String src, boolean isLoop) throws LuaException
 	{
-		this(main, src, new Object[0], isLoop);
+		this(main, src, isLoop, null);
 	}
 
-	public LuaThread(Main main, String src, Object[] arg, boolean isLoop) throws LuaException
+	public LuaThread(Main main, String src, boolean isLoop, Object[] arg) throws LuaException
 	{
 		mMain = main;
 		luaDir = mMain.luaDir;
@@ -52,17 +51,25 @@ public class LuaThread extends Thread implements Runnable
 	}
 	public LuaThread(Main main, LuaObject func) throws LuaException
 	{
-		this(main, func, new Object[0]);
+		this(main, func, false,null);
 	}
-
 	public LuaThread(Main main, LuaObject func, Object[] arg) throws LuaException
+	{
+		this(main, func, false,arg);
+	}
+	public LuaThread(Main main, LuaObject func, boolean isLoop) throws LuaException
+	{
+		this(main, func, false,null);
+	}
+	
+	public LuaThread(Main main, LuaObject func, boolean isLoop, Object[] arg) throws LuaException
 	{
 		mMain = main;
 		luaDir = mMain.luaDir;
 		luaCpath=mMain.luaCpath;
 		if (arg != null)
 			mArg = arg;
-		//mFunc=func;
+		mIsLoop = isLoop;
 		mBuffer = func.dump();
 	}
 
