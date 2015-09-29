@@ -51,6 +51,7 @@ public class Main extends Activity
 	private ExecutorService mThreadPool;
 
 	public String luaCpath;
+	private boolean mInAsset=false;
 
 
 	@Override
@@ -122,6 +123,7 @@ public class Main extends Activity
 					initLua();
 					path = path.substring(1, path.length());
 					//doString("require \"" + path + "\"");
+					mInAsset=true;
 					doAsset(path + ".lua");
 				}
 				else
@@ -137,6 +139,7 @@ public class Main extends Activity
 			{
 				initLua();
 //				Jlua.init(L);
+				mInAsset=true;
 				doAsset("main");
 				//doFile(luaDir+"/new.lua");
 			}
@@ -167,6 +170,11 @@ public class Main extends Activity
 
 	}
 
+	public boolean isInAsset()
+	{
+		return mInAsset;
+	}
+	
 	@Override
 	public void onContentChanged()
 	{
@@ -357,10 +365,10 @@ public class Main extends Activity
 	{
 		Intent intent = new Intent(this, Main.class);
 		if (Pattern.matches("^\\w+$", path))
-			if (luaPath == null)
+			if (isInAsset())
 				intent.setData(Uri.parse("file:/" + path));
 			else
-				intent.setData(Uri.parse("file://" + luaDir + path + ".lua"));
+				intent.setData(Uri.parse("file://" + luaDir + "/" + path + ".lua"));
 		else
 			intent.setData(Uri.parse("file://" + path));
 
@@ -376,6 +384,8 @@ public class Main extends Activity
 		overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
 	}
 
+
+	
 //初始化lua使用的Java函数
 	private void initLua() throws Exception
 	{
