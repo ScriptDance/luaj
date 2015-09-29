@@ -114,11 +114,15 @@ function dump (t)
 
 local content=activity
 local ViewGroup=bindClass("android.view.ViewGroup")
+local String=bindClass("java.lang.String")
 local Gravity=bindClass("android.view.Gravity")
 local OnClickListener=bindClass("android.view.View$OnClickListener")
 local TypedValue=luajava.bindClass("android.util.TypedValue")
 local BitmapDrawable=luajava.bindClass("android.graphics.drawable.BitmapDrawable")
 local LuaDrawable=luajava.bindClass "com.androlua.LuaDrawable"
+local ArrayAdapter=bindClass("android.widget.ArrayAdapter")
+local android_R=bindClass("android.R")
+android={R=android_R}
 
 local dm=content.getResources().getDisplayMetrics()
 local id=0x7f000000
@@ -342,11 +346,14 @@ local function env_loadlayout(env)
     return function(t,root,group)
         local view = t[1](content) --创建view
         local LayoutParams=(group or ViewGroup).LayoutParams
-        local params --设置layout属性
+        local params=ViewGroup.LayoutParams(checkValue(t.layout_width) or -2,checkValue(t.layout_height) or -2) --设置layout属性
+        
+        if group then
+            params=LayoutParams(params)
+            end
+            
         if t.layout_weight then
-            params=LayoutParams(checkValues(t.layout_width or -2,t.layout_height or -2,t.layout_weight or 0))
-            else
-            params=LayoutParams(checkValue(t.layout_width) or -2,checkValue(t.layout_height) or -2)
+            params.weight=(checkValue(t.layout_weight or 0))
             end
         
         if t.layout_gravity then
@@ -382,13 +389,16 @@ local function env_loadlayout(env)
             end
 
         for k,v in pairs(t) do
-            if type(v)=="table" then --创建子view
+            if tonumber(k) and type(v)=="table" then --创建子view
                 view.addView(loadlayout(v,root,t[1]))
                 elseif k=="id" then --创建view的全局变量
                 rawset(root or _env,v,view)
                 view.setId(id)
                 ids[v]=id
                 id=id+1
+                elseif k=="items" and type(v)=="table" then --创建列表项目
+                local adapter=ArrayAdapter(content,android_R.layout.simple_list_item_1, String(v))
+                view.setAdapter(adapter)
                 elseif k=="text" then
                 view.setText(v)
                 elseif k=="textSize" then
@@ -525,9 +535,9 @@ function thread(src,...)
     end
     local luaThread
     if ... then
-        luaThread=LuaThread(content,src,Object{...})
+        luaThread=LuaThread(content,src,true,Object{...})
         else
-        luaThread=LuaThread(content,src)
+        luaThread=LuaThread(content,src,true)
         end
     luaThread.start()
     --setmetamethod(luaThread,"__call",__call)
@@ -580,9 +590,6 @@ function utf8.sub(s,i,j)
 
 import 'java.lang.*'
 import 'java.util.*'
-
-android={R=bindClass("android.R")}
-
 
 function new_env()
     local _env={
