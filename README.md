@@ -1,4 +1,4 @@
-# AndroLua-
+﻿# AndroLua-
 lua 5.3.1 for android pro
 
 关于
@@ -35,6 +35,11 @@ canvas
 
 jni
 由nirenr开发
+
+与标准Lua5.3.1的区别
+1，增加string.gfind函数，用于迭代查找字符串位置，
+2，修改os.clock适应安卓的CPU机制
+3，增加table.foreach兼容Lua5.1
 
 1，参考链接
 关于lua的语法和Android API请参考以下网页。
