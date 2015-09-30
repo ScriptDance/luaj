@@ -351,7 +351,13 @@ local function env_loadlayout(env)
         if group then
             params=LayoutParams(params)
             end
-            
+         if t.layout_x then
+            params.x=(checkValue(t.layout_x or 0))
+            end
+         if t.layout_y then
+            params.y=(checkValue(t.layout_y or 0))
+            end
+         
         if t.layout_weight then
             params.weight=(checkValue(t.layout_weight or 0))
             end
