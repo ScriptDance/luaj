@@ -818,7 +818,7 @@ public class LuaEditor extends EditText
 				Layout layout=getLayout();
 				int line=layout.getLineForVertical((int)y + getScrollY());
 
-				if (x + getScrollX() - getWidth() / 4 > Math.max(getWidth() / 2, layout.getLineWidth(line)))
+				if (x + getScrollX() - getWidth() / 4 > Math.max(getWidth(), layout.getLineWidth(line)))
 				{
 					touchOut = true;
 					return true;
@@ -840,7 +840,7 @@ public class LuaEditor extends EditText
 				//setCursorVisible(false);
 				if (flingOrientation == FLINGED)
 				{
-					if (Math.abs(deltaX) >= Math.abs(deltaY))
+					if (Math.abs(deltaX) > Math.abs(deltaY))
 						flingOrientation = HORIZONTAL;
 					else
 						flingOrientation = VERTICAL;
@@ -858,7 +858,7 @@ public class LuaEditor extends EditText
 				if ((Math.max(Math.abs(initialVelocityX), Math.abs(initialVelocityY)) > mMinimumVelocity)
 					&& getLineCount() > 0)
 				{
-					fling(-initialVelocityX, -initialVelocityY);
+					fling((int)(-initialVelocityX*2), (int)(-initialVelocityY*2));
 				}
 				releaseVelocityTracker();
 				flingOrientation = FLINGED;
@@ -882,12 +882,12 @@ public class LuaEditor extends EditText
 	{
 		if (mScroller.computeScrollOffset())
 		{
-			scrollTo(mScroller.getCurrX() + 4, mScroller.getCurrY() + 4);
+			scrollTo(mScroller.getCurrX(), mScroller.getCurrY());
 			postInvalidate();
 			return;
 		}
 		if (flingOrientation != HORIZONTAL)
-			if (mScroller.getCurrY() != getScrollY())
+			//if (mScroller.getCurrY() != getScrollY())
 				refreshHightlight();
 
 	}
