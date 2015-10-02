@@ -242,6 +242,17 @@ int l_tcc_get_symbol(lua_State * L)
 	return 1;
 }
 
+int l_tcc_get_function(lua_State * L)
+{
+	TCCState *s;
+	int (*func)(lua_State * );
+	s=*(TCCState**)lua_touserdata(L,1);
+	const char *str=lua_tostring(L,2);
+    func=tcc_get_symbol(s, str);
+	lua_pushcfunction(L,func);
+	return 1;
+}
+
 int l_tcc_call(lua_State * L)
 {
 	TCCState *s;
@@ -265,8 +276,6 @@ int l_tcc_call(lua_State * L)
 			break;
 	}
 	
-	
-			
 	int ret=func(arg);
 	lua_pushinteger(L,ret);
 	return 1;
@@ -308,7 +317,8 @@ int _EXPORT luaopen_tcc(lua_State * L)
 	{"output_file", l_tcc_output_file},
 	{"run", l_tcc_run},
 	{"get_symbol", l_tcc_get_symbol},
-	{"call", l_tcc_call},
+	{"get_function", l_tcc_get_function},
+    {"call", l_tcc_call},
 	{NULL, NULL}
 	};
 	luaL_newlib(L, funcs);
