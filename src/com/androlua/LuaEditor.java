@@ -425,6 +425,8 @@ public class LuaEditor extends EditText
 					if (lss != -1)
 					{
 						int s=lss - start;
+						if(text.length()<1)
+							break;
 						String t=text.substring(s, text.length() - 1);
 						highlight(t, lss, idx );
 						lss = -1;

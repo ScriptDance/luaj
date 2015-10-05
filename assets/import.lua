@@ -121,40 +121,42 @@ local TypedValue=luajava.bindClass("android.util.TypedValue")
 local BitmapDrawable=luajava.bindClass("android.graphics.drawable.BitmapDrawable")
 local LuaDrawable=luajava.bindClass "com.androlua.LuaDrawable"
 local ArrayAdapter=bindClass("android.widget.ArrayAdapter")
+local ScaleType=bindClass("android.widget.ImageView$ScaleType")
+local scaleTypes=ScaleType.values()
 local android_R=bindClass("android.R")
 android={R=android_R}
 
 local dm=content.getResources().getDisplayMetrics()
 local id=0x7f000000
 local toint={
-    -- android:drawingCacheQuality
+    --android:drawingCacheQuality
     auto=0,
     low=1,
     high=2,
 
-    -- android:importantForAccessibility
+    --android:importantForAccessibility
     auto=0,
     yes=1,
     no=2,
 
-    -- android:layerType
+    --android:layerType
     none=0,
     software=1,
     hardware=2,
 
-    -- android:layoutDirection
+    --android:layoutDirection
     ltr=0,
     rtl=1,
     inherit=2,
     locale=3,
 
-    -- android:scrollbarStyle
+    --android:scrollbarStyle
     insideOverlay=0x0,
     insideInset=0x01000000,
     outsideOverlay=0x02000000,
     outsideInset=0x03000000,
 
-    -- android:visibility
+    --android:visibility
     visible=0,
     invisible=1,
     gone=2,
@@ -165,12 +167,20 @@ local toint={
     wrap=-2,
     fill=-1,
     match=-1,
-
-    -- android:orientation
+    
+    --android:autoLink
+    none=0x00,
+    web=0x01,
+    email=0x02,
+    phon=0x04,
+    map=0x08,
+    all=0x0f,
+    
+    --android:orientation
     vertical=1,
     horizontal= 0,
 
-    -- android:gravity
+    --android:gravity
     axis_clip = 8,
     axis_pull_after = 4,
     axis_pull_before = 2,
@@ -185,7 +195,7 @@ local toint={
     clip_vertical = 128,
     display_clip_horizontal = 16777216,
     display_clip_vertical = 268435456,
-    --    fill = 119,
+    --fill = 119,
     fill_horizontal = 7,
     fill_vertical = 112,
     horizontal_gravity_mask = 7,
@@ -198,8 +208,8 @@ local toint={
     top = 48,
     vertical_gravity_mask = 112,
     ["end"] = 8388613,
-
-    -- android:textAlignment
+    
+    --android:textAlignment
     inherit=0,
     gravity=1,
     textStart=2,
@@ -208,7 +218,7 @@ local toint={
     viewStart=5,
     viewEnd=6,
     
-    -- android:inputType
+    --android:inputType
     none=0x00000000,
     text=0x00000001,
     textCapCharacters=0x00001001,
@@ -243,6 +253,20 @@ local toint={
     time=0x00000024,
 
     }
+    
+local scaleType={
+    --android:scaleType
+    matrix=0,
+    fitXY=1,
+    fitStart=2,
+    fitCenter=3,
+    fitEnd=4,
+    center=5,
+    centerCrop=6,
+    centerInside=7,
+    }
+
+    
 local rules={
     layout_above=2,
     layout_alignBaseline=4,
@@ -337,14 +361,31 @@ local function checkValues(...)
     return unpack(vars)
     end
 
-
+local function getattr(s)
+    return android_R.attr[s]
+    end
+local function checkattr(s)
+    local e,s=pcall(getattr,s)
+    if e then
+        return s
+        end
+    return nil
+    end
 
 local function env_loadlayout(env)
     local _env=env
     local ids={}
     local Listeners={}
     return function(t,root,group)
-        local view = t[1](content) --创建view
+        local view,style
+        if t.style then
+            style=checkattr(t.style)
+            end
+        if style then
+            view = t[1](content,nil,style)
+            else
+            view = t[1](content) --创建view
+            end
         local LayoutParams=(group or ViewGroup).LayoutParams
         local params=ViewGroup.LayoutParams(checkValue(t.layout_width) or -2,checkValue(t.layout_height) or -2) --设置layout属性
         
@@ -375,7 +416,7 @@ local function env_loadlayout(env)
             params.setMarginEnd(checkValue(t.layout_marginEnd))
             end
         for k,v in pairs(t) do
-            if rules[k] and v==true then
+            if rules[k] and (v==true or v=="true") then
                 params.addRule(rules[k])
                 elseif rules[k] then
                 params.addRule(rules[k],ids[v])
@@ -420,7 +461,8 @@ local function env_loadlayout(env)
                     else
                     view.setTextSize(v)
                     end
-                
+                elseif k=="textAppearance" then
+                view.setTextAppearance(content,checkattr(v))
                 elseif k=="onClick" then --设置onClick事件接口
                 local listener
                 if type(v)=="function" then
@@ -443,6 +485,8 @@ local function env_loadlayout(env)
                 view.setOnClickListener(listener)
                 elseif k=="src" then
                 task([[require "import" url=... return loadbitmap(url)]],v,function(bmp)view.setImageBitmap(bmp)end)
+                elseif k=="scaleType" then
+                view.setScaleType(scaleTypes[scaleType[v]])
                 elseif k=="background" then
                 if type(v)=="string" then
                     if v:find("#") then
@@ -464,7 +508,7 @@ local function env_loadlayout(env)
                     end
                 elseif k=="password" and (v=="true" or v==true) then
                 view.setInputType(0x81)
-                elseif type(k)=="string" and not(k:find("layout_")) and not(k:find("padding")) then --设置属性
+                elseif type(k)=="string" and not(k:find("layout_")) and not(k:find("padding")) and k~="style" then --设置属性
                 k=string.gsub(k,"^(%w)",function(s)return string.upper(s)end)
                 view["set"..k](checkValue(v))
                 --[[local st,err=pcall(function(view,k,v)view["set"..k](checkValue(v))end,view,k,v)

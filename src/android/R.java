@@ -2597,7 +2597,6 @@ public final class R
     public static final class drawable
     {
         public static final int alert_dark_frame = 17301504;
-
         public static final int alert_light_frame = 17301505;
 
         public static final int arrow_down_float = 17301506;
