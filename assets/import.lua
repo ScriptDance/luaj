@@ -1,5 +1,6 @@
 local require=require
 local table=require "table"
+local string=require "string"
 local packages = {}
 local loaded = {}
 luajava.package=packages
@@ -253,7 +254,7 @@ local toint={
     time=0x00000024,
 
     }
-    
+
 local scaleType={
     --android:scaleType
     matrix=0,
@@ -266,7 +267,7 @@ local scaleType={
     centerInside=7,
     }
 
-    
+
 local rules={
     layout_above=2,
     layout_alignBaseline=4,
@@ -372,10 +373,75 @@ local function checkattr(s)
     return nil
     end
 
+local function dump2 (t)
+    local _t={}
+    table.insert(_t,tostring(t))
+    table.insert(_t,"\t{")
+    for k,v in pairs(t) do
+        if type(v)=="table" then
+            table.insert(_t,"\t\t"..tostring(k).."={"..tostring(v[1]).." ...}")
+            else
+            table.insert(_t,"\t\t"..tostring(k).."="..tostring(v))
+            end
+        end
+    table.insert(_t,"\t}")
+    t=table.concat(_t,"\n")
+    return t
+    end
+
+local function setattribute(view,params,k,v,ids)
+    if k=="layout_x" then
+        params.x=checkValue(v)
+        elseif k=="layout_y" then
+        params.y=checkValue(v)
+        elseif k=="layout_weight" then
+        params.weight=checkValue(v)
+        elseif k=="layout_gravity" then
+        params.gravity=checkValue(v)
+        elseif k=="layout_marginStart" then
+        params.setMarginStart(checkValue(v))
+        elseif k=="layout_marginEnd" then
+        params.setMarginEnd(checkValue(v))
+        elseif rules[k] and (v==true or v=="true") then
+        params.addRule(rules[k])
+        elseif rules[k] then
+        params.addRule(rules[k],ids[v])
+        elseif k=="items" and type(v)=="table" then --创建列表项目
+        local adapter=ArrayAdapter(content,android_R.layout.simple_list_item_1, String(v))
+        view.setAdapter(adapter)
+        elseif k=="text" then
+        view.setText(v)
+        elseif k=="textSize" then
+        if tonumber(v) then
+            view.setTextSize(tonumber(v))
+            elseif type(v)=="string" then
+            local n,ty=checkType(v)
+            if ty then
+                view.setTextSize(ty,n)
+                else
+                view.setTextSize(v)
+                end
+            else
+            view.setTextSize(v)
+            end
+        elseif k=="textAppearance" then
+        view.setTextAppearance(content,checkattr(v))
+        elseif k=="src" then
+        task([[require "import" url=... return loadbitmap(url)]],v,function(bmp)view.setImageBitmap(bmp)end)
+        elseif k=="scaleType" then
+        view.setScaleType(scaleTypes[scaleType[v]])
+        elseif k=="password" and (v=="true" or v==true) then
+        view.setInputType(0x81)
+        elseif type(k)=="string" and not(k:find("layout_")) and not(k:find("padding")) and k~="style" then --设置属性
+        k=string.gsub(k,"^(%w)",function(s)return string.upper(s)end)
+        view["set"..k](checkValue(v))
+        end
+    end
+
 local function env_loadlayout(env)
     local _env=env
     local ids={}
-    local Listeners={}
+    local ltrs={}
     return function(t,root,group)
         local view,style
         if t.style then
@@ -386,45 +452,15 @@ local function env_loadlayout(env)
             else
             view = t[1](content) --创建view
             end
-        local LayoutParams=(group or ViewGroup).LayoutParams
+        
         local params=ViewGroup.LayoutParams(checkValue(t.layout_width) or -2,checkValue(t.layout_height) or -2) --设置layout属性
-        
         if group then
-            params=LayoutParams(params)
-            end
-         if t.layout_x then
-            params.x=(checkValue(t.layout_x or 0))
-            end
-         if t.layout_y then
-            params.y=(checkValue(t.layout_y or 0))
-            end
-         
-        if t.layout_weight then
-            params.weight=(checkValue(t.layout_weight or 0))
+            params=group.class.LayoutParams(params)
             end
         
-        if t.layout_gravity then
-            params.gravity=checkValue(t.layout_gravity)
-            end
+        --设置layout_margin属性
         if t.layout_margin or t.layout_marginStart or t.layout_marginEnd or t.layout_marginLeft or t.layout_marginTop or t.layout_marginRight or t.layout_marginBottom then
             params.setMargins(checkValues( t.layout_marginLeft or t.layout_margin or 0,t.layout_marginTop or t.layout_margin or 0,t.layout_marginRight or t.layout_margin or 0,t.layout_marginBottom or t.layout_margin or 0))
-            end
-        if t.layout_marginStart then
-            params.setMarginStart(checkValue(t.layout_marginStrat))
-            end
-        if t.layout_marginEnd then
-            params.setMarginEnd(checkValue(t.layout_marginEnd))
-            end
-        for k,v in pairs(t) do
-            if rules[k] and (v==true or v=="true") then
-                params.addRule(rules[k])
-                elseif rules[k] then
-                params.addRule(rules[k],ids[v])
-                end
-            end
-        
-        if params then
-            view.setLayoutParams(params)
             end
 
         --设置padding属性
@@ -437,56 +473,12 @@ local function env_loadlayout(env)
 
         for k,v in pairs(t) do
             if tonumber(k) and type(v)=="table" then --创建子view
-                view.addView(loadlayout(v,root,t[1]))
+                loadlayout(v,root,view)
                 elseif k=="id" then --创建view的全局变量
                 rawset(root or _env,v,view)
                 view.setId(id)
                 ids[v]=id
                 id=id+1
-                elseif k=="items" and type(v)=="table" then --创建列表项目
-                local adapter=ArrayAdapter(content,android_R.layout.simple_list_item_1, String(v))
-                view.setAdapter(adapter)
-                elseif k=="text" then
-                view.setText(v)
-                elseif k=="textSize" then
-                if tonumber(v) then
-                    view.setTextSize(tonumber(v))
-                    elseif type(v)=="string" then
-                    local n,ty=checkType(v)
-                    if ty then
-                        view.setTextSize(ty,n)
-                        else
-                        view.setTextSize(v)
-                        end
-                    else
-                    view.setTextSize(v)
-                    end
-                elseif k=="textAppearance" then
-                view.setTextAppearance(content,checkattr(v))
-                elseif k=="onClick" then --设置onClick事件接口
-                local listener
-                if type(v)=="function" then
-                    listener=OnClickListener{onClick=v}
-                    elseif type(v)=="userdata" then
-                    listener=v
-                    elseif type(v)=="string" then
-                    if Listeners[v] then
-                        listener=Listeners[v]
-                        else
-                        local l=rawget(_env,v)
-                        if type(l)=="function" then
-                            listener=OnClickListener{onClick=l}
-                            elseif type(l)=="userdata" then
-                            listener=l
-                            end
-                        Listeners[v]=listener
-                        end
-                    end
-                view.setOnClickListener(listener)
-                elseif k=="src" then
-                task([[require "import" url=... return loadbitmap(url)]],v,function(bmp)view.setImageBitmap(bmp)end)
-                elseif k=="scaleType" then
-                view.setScaleType(scaleTypes[scaleType[v]])
                 elseif k=="background" then
                 if type(v)=="string" then
                     if v:find("#") then
@@ -506,18 +498,42 @@ local function env_loadlayout(env)
                     elseif type(v)=="number" then
                     view.setBackgroundColor(v)
                     end
-                elseif k=="password" and (v=="true" or v==true) then
-                view.setInputType(0x81)
-                elseif type(k)=="string" and not(k:find("layout_")) and not(k:find("padding")) and k~="style" then --设置属性
-                k=string.gsub(k,"^(%w)",function(s)return string.upper(s)end)
-                view["set"..k](checkValue(v))
-                --[[local st,err=pcall(function(view,k,v)view["set"..k](checkValue(v))end,view,k,v)
-                if st==false then
-                    os.execute("log -p w -t lua layout table warning "..err)
-                    end]]
+                elseif k=="onClick" then --设置onClick事件接口
+                local listener
+                if type(v)=="function" then
+                    listener=OnClickListener{onClick=v}
+                    elseif type(v)=="userdata" then
+                    listener=v
+                    elseif type(v)=="string" then
+                    if ltrs[v] then
+                        listener=ltrs[v]
+                        else
+                        local l=rawget(_env,v)
+                        if type(l)=="function" then
+                            listener=OnClickListener{onClick=l}
+                            elseif type(l)=="userdata" then
+                            listener=l
+                            end
+                        ltrs[v]=listener
+                        end
+                    end
+                view.setOnClickListener(listener)
+                else
+                local e,s=pcall(setattribute,view,params,k,v,ids)
+                if not e then
+                    local _,i=s:find(":%d+:")
+                    s=s:sub(i,-1)
+                    error(string.format("loadlayout error %s \n\tat %s\n\tat  key=%s value=%s\n\tat %s",s,view.toString(),k,v,dump2(t)))
+                    end
                 end
             end
-        return view
+        
+        if group then
+            group.addView(view,params)
+            else
+            view.setLayoutParams(params)
+            return view
+            end
         end
     end
 
@@ -573,8 +589,8 @@ local function __newindex(t,k,v)
 
 local function checkPath(str)
     if str:find("^[%w%.%_]+$") then
-        if luajava.luapath then
-            return string.format("%s%s.lua",luajava.luapath:match("^(.-)[^/]+$"),str)
+        if not activity.isInAsset() then
+            return string.format("%s/%s.lua",activity.luaDir,str)
             end
         end
     return str
@@ -582,8 +598,8 @@ local function checkPath(str)
 
 function thread(src,...)
     if type(src)=="string" then
-    src=checkPath(src)
-    end
+        src=checkPath(src)
+        end
     local luaThread
     if ... then
         luaThread=LuaThread(content,src,true,Object{...})
@@ -604,7 +620,7 @@ function task(src,...)
     local luaAsyncTask=LuaAsyncTask(content,src,callback)
     luaAsyncTask.execute(args)
     end
-    
+
 function timer(f,d,p,...)
     local luaTimer=LuaTimer(content,f,Object{...})
     if p==0 then
@@ -618,9 +634,12 @@ function timer(f,d,p,...)
 
 local LuaBitmap=luajava.bindClass "com.androlua.LuaBitmap"
 function loadbitmap(path)
+    if not path:find("%.") then
+        path=path..".png"
+        end
     if path:find("^[%w%.%_]+$") then
-        if luajava.luapath then
-            return LuaBitmap.getLoacalBitmap(string.format("%s%s",luajava.luapath:match("^(.-)[^/]+$"),path))
+        if not activity.isInAsset() then
+            return LuaBitmap.getLoacalBitmap(string.format("%s/%s",activity.luaDir,path))
             else
             return LuaBitmap.getAssetBitmap(content,path)
             end
