@@ -118,7 +118,7 @@ public class LuaTimerTask extends TimerTask
 		mEnabled = enabled;
 	}
 
-	public boolean getEnabled()
+	public boolean isEnabled()
 	{
 		return mEnabled;
 	}
@@ -140,6 +140,10 @@ public class LuaTimerTask extends TimerTask
 	{
 		switch (error)
 		{
+			case 6:
+				return "error error";
+			case 5:
+				return "GC error";
 			case 4:
 				return "Out of memory";
 			case 3:
@@ -151,7 +155,7 @@ public class LuaTimerTask extends TimerTask
 		}
 		return "Unknown error " + error;
 	}
-
+	
 	private void initLua() throws LuaException
 	{
 		L = LuaStateFactory.newLuaState();
@@ -159,24 +163,26 @@ public class LuaTimerTask extends TimerTask
 		L.pushJavaObject(mMain);
 		L.setGlobal("activity");
 
-		JavaFunction print = new LuaPrint(L);
+		JavaFunction print = new LuaPrint(mMain,L);
 		print.register("print");
 
-		JavaFunction assetLoader = new LuaAssetLoader(L); 
+		JavaFunction assetLoader = new LuaAssetLoader(mMain,L); 
 
 		L.getGlobal("package"); 
 		L.getField(-1, "loaders");
 		int nLoaders = L.objLen(-1);
-		for (int i=nLoaders;i >= 2;i--)
+		int idx=3;
+		if(mMain.isInAsset())
+			idx=2;
+		for (int i=nLoaders;i >= idx;i--)
 		{
 			L.rawGetI(-1, i);
 			L.rawSetI(-2, i + 1);
 		}
 		L.pushJavaFunction(assetLoader); 
-		L.rawSetI(-2, 2);
-
-		L.pop(1);
-
+		L.rawSetI(-2, idx);
+		L.pop(1);          
+		
 		L.pushString(luaDir + "/?.lua;" + luaDir + "/lua/?.lua;" + luaDir + "/?/init.lua;");
 		L.setField(-2, "path");
 		L.pushString(luaCpath);
@@ -403,89 +409,6 @@ public class LuaTimerTask extends TimerTask
 		catch (LuaException e)
 		{
 			mMain.sendMsg(e.getMessage());
-		}
-	}
-
-	public class LuaAssetLoader extends JavaFunction
-	{
-
-		protected LuaState L;
-
-		public LuaAssetLoader(LuaState L)
-		{
-			super(L);
-			this.L = L;
-		}
-
-		@Override
-		public int execute() throws LuaException
-		{
-			String name = L.toString(-1);
-			name = name.replace('.', '/') + ".lua";
-			try
-			{
-				byte[] bytes = mMain.readAsset(name);
-				int ok=L.LloadBuffer(bytes, name);
-				if (ok != 0)
-					L.pushString("\n\t" + L.toString(-1));
-				return 1;
-			}
-			catch (IOException e)
-			{
-				L.pushString("\n\tno file \'/assets/" + name + "\'");
-				return 1;
-			}
-		}
-
-	}
-
-	public class LuaPrint extends JavaFunction
-	{
-
-		protected LuaState L;
-
-		public LuaPrint(LuaState L)
-		{
-			super(L);
-			this.L = L;
-		}
-
-		@Override
-		public int execute() throws LuaException
-		{
-			if (L.getTop() < 2)
-			{
-				mMain.sendMsg("");
-				return 0;
-			}
-			for (int i = 2; i <= L.getTop(); i++)
-			{
-				int type = L.type(i);
-				String val = null;
-				String stype = L.typeName(type);
-				if (stype.equals("userdata"))
-				{
-					Object obj = L.toJavaObject(i);
-					if (obj != null)
-						val = obj.toString();
-				}
-				else if (stype.equals("boolean"))
-				{
-					val = L.toBoolean(i) ? "true" : "false";
-				}
-				else
-				{
-					val = L.toString(i);
-				}
-				if (val == null)
-					val = stype;						
-				output.append("\t");
-				output.append(val);
-				output.append("\t");
-			}
-			mMain.sendMsg(output.toString().substring(1, output.length() - 1));
-			output.setLength(0);
-			return 0;
 		}
 	}
 

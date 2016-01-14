@@ -784,7 +784,7 @@ LUALIB_API const char *luaL_tolstring (lua_State *L, int idx, size_t *len) {
 */
 #if defined(LUA_COMPAT_MODULE)
 
-static const char *luaL_findtable (lua_State *L, int idx,
+LUALIB_API const char *luaL_findtable (lua_State *L, int idx,
                                    const char *fname, int szhint) {
   const char *e;
   if (idx) lua_pushvalue(L, idx);

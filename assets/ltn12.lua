@@ -12,7 +12,7 @@ local table = require("table")
 local base = _G
 local _M = {}
 if module then -- heuristic for exporting a global package table
-    ltn12 = _M
+    --ltn12 = _M
 end
 local filter,source,sink,pump = {},{},{},{}
 

@@ -75,7 +75,7 @@ static int luaB_tonumber (lua_State *L) {
     }
     else {
       size_t l;
-      const char *s = lua_tolstring(L, 1, &l);
+      const char *s = luaL_tolstring(L, 1, &l);
       if (s != NULL && lua_stringtonumber(L, s) == l + 1)
         return 1;  /* successful conversion to number */
       /* else not a number */
@@ -98,6 +98,31 @@ static int luaB_tonumber (lua_State *L) {
   return 1;
 }
 
+
+static int luaB_tointeger (lua_State *L) {
+  if (lua_type(L, 1) == LUA_TNUMBER){
+    if (lua_isinteger(L, 1)) {
+      lua_settop(L, 1);
+      return 1;
+	}
+	else {
+	  lua_Number n = lua_tonumber(L, 1);
+	  lua_pushinteger(L, (lua_Integer)n);
+	  return 1;
+	}
+  }
+  else {
+    size_t l;
+    const char *s = luaL_tolstring(L, 1, &l);
+    if (s != NULL && lua_stringtonumber(L, s) == l + 1) {
+      lua_Number n = lua_tonumber(L, 1);
+	  lua_pushinteger(L, (lua_Integer)n);
+	  return 1;
+	}
+  }
+  lua_pushnil(L);
+  return 1;
+}
 
 static int luaB_error (lua_State *L) {
   int level = (int)luaL_optinteger(L, 2, 1);
@@ -465,12 +490,28 @@ static int luaB_tostring (lua_State *L) {
   return 1;
 }
 
+/* compatibility with old module system */
+#if defined(LUA_COMPAT_MODULE)
+static int findtable (lua_State *L) {
+  if (lua_gettop(L)==1){
+    lua_pushglobaltable(L);
+    lua_insert(L, 1);
+  }
+  luaL_checktype(L, 1, LUA_TTABLE);
+  const char *name = luaL_checklstring(L, 2, 0);
+  luaL_findtable(L, 1, name, 0);
+  return 1;
+}
+#endif
 
 static const luaL_Reg base_funcs[] = {
   {"assert", luaB_assert},
   {"collectgarbage", luaB_collectgarbage},
   {"dofile", luaB_dofile},
   {"error", luaB_error},
+#if defined(LUA_COMPAT_MODULE)
+  {"findtable", findtable},
+#endif
   {"getmetatable", luaB_getmetatable},
   {"ipairs", luaB_ipairs},
   {"loadfile", luaB_loadfile},
@@ -489,6 +530,7 @@ static const luaL_Reg base_funcs[] = {
   {"select", luaB_select},
   {"setmetatable", luaB_setmetatable},
   {"tonumber", luaB_tonumber},
+  {"tointeger", luaB_tointeger},
   {"tostring", luaB_tostring},
   {"xpcall", luaB_xpcall},
   /* placeholders */

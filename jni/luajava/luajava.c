@@ -1975,8 +1975,10 @@ JNIEXPORT jlong JNICALL
 Java_com_luajava_LuaState__1toInteger(JNIEnv *env, jobject jobj, jobject cptr,
                                       jint idx) {
   lua_State *L = getStateFromCPtr(env, cptr);
-
-  return (jlong)lua_tointeger(L, idx);
+  if (lua_isinteger(L, idx))
+    return (jlong)lua_tointeger(L, idx);
+  else
+    return (jlong)lua_tonumber(L, idx);
 }
 
 /************************************************************************

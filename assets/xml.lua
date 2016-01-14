@@ -1,7 +1,7 @@
 
 local base = _G
 
-local xml = require("xml_core")
+local xml = require("xml.core")
 module("xml")
 
 -- symbolic name for tag index, this allows accessing the tag by var[xml.TAG]

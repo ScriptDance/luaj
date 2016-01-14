@@ -36,14 +36,14 @@ function format(Text)
     end
 
 
-function build(path)
+function build(path,out)
     if path then
         local str,st=loadfile(path)
         if not str then
             --print('编译出错: '..st)
             return nil,st
             end
-        local path=path..'c'
+        local path=out or path..'c'
        
         local st,str=pcall(string.dump,str,true)
         if st then

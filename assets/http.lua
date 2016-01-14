@@ -372,11 +372,16 @@ _M.cookie=""
 function _M.post(u,d,cok)
   local t = {}
   d=d or ""
+  if type(d)=="table" then
+    d=table.concat(d,"&")
+    end
   local r, c, h = _M.request{
    url = u,
    method = "POST",
    headers = {
     ["Content-Type"] = "application/x-www-form-urlencoded",
+    ["Accept-Language"] = "zh-cn,zh;q=0.5",
+    ["Accept-Charset"] = "utf-8",
     ["Content-Length"] = #d,
     ['Cookie']=cok or cookie,
    },
@@ -385,6 +390,40 @@ function _M.post(u,d,cok)
   return table.concat(t),checkcookie(h), c, h
  end
 
+local boundary="----qwertyuiopasdfghjklzxcvbnm"
+
+local function formatmultidata(d,t)
+  local buf={}
+  for k,v in pairs(d or {}) do
+    table.insert(buf,string.format('--%s\r\nContent-Disposition:form-data;name="%s"\r\n\r\n%s\r\n',boundary,k,v))
+  end
+  for k,v in pairs(t or {}) do
+    local f=io.open(v,"r")
+    local s=f:read("*all")
+    f:close()
+    table.insert(buf,string.format('--%s\r\nContent-Disposition:form-data;name="%s";filename="%s"\r\nContent-Type:application/octet-stream\r\n\r\n%s\r\n',boundary,k,v,s))
+  end
+  table.insert(buf,string.format("--%s--\r\n",boundary))
+  return table.concat(buf)
+end
+
+function _M.upload(u,d,f,cok)
+  local t = {}
+  local data=formatmultidata(d,f)
+  local r, c, h = _M.request{
+    url = u,
+    method = "POST",
+    headers = {
+      ["Content-Type"] = "multipart/form-data;boundary="..boundary,
+      ["Accept-Language"] = "zh-cn,zh;q=0.5",
+      ["Accept-Charset"] = "utf-8",
+      ["Content-Length"] = #data,
+      ['Cookie']=cok or cookie,
+    },
+    source = ltn12.source.string(data),
+    sink = ltn12.sink.table(t)}
+  return table.concat(t),checkcookie(h), c, h
+end
 
 function _M.get(u,cok)
   local t = {}
@@ -393,11 +432,28 @@ function _M.get(u,cok)
    method = "GET",
    headers = {
     ["Content-Type"] = "application/x-www-form-urlencoded",
+    ["Accept-Language"] = "zh-cn,zh;q=0.5",
+    ["Accept-Charset"] = "utf-8",
     ['Cookie']=cok or cookie,
    },
    sink = ltn12.sink.table(t)}
   return table.concat(t),checkcookie(h), c, h
  end
 
+function _M.download(u,p,cok)
+  local f = io.open(p,"w")
+  local r, c, h = _M.request{
+   url = u,
+   method = "GET",
+   headers = {
+    ["Content-Type"] = "application/x-www-form-urlencoded",
+    ["Accept-Language"] = "zh-cn,zh;q=0.5",
+    ["Accept-Charset"] = "utf-8",
+    ["Range:bytes"]=range or "0-",
+    ['Cookie']=cok or cookie,
+   },
+   sink = ltn12.sink.file(f)}
+  return c, h
+ end
 
 return _M

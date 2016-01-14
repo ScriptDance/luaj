@@ -48,9 +48,23 @@ public class LuaTimer extends Timer
 		task.setEnabled(enabled);
 	}
 
-	public boolean getEnabled()
+	public boolean isEnabled()
 	{
-		return task.getEnabled();
+		return task.isEnabled();
 	}
 	
+	public boolean getEnabled()
+	{
+		return task.isEnabled();
+	}
+	
+	public void setPeriod(long period)
+	{
+		task.setPeriod(period);
+	}
+
+	public long getPeriod()
+	{
+		return task.getPeriod();
+	}
 }

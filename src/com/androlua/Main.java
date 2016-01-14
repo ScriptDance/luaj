@@ -2,6 +2,7 @@ package com.androlua;
 
 import android.app.*;
 import android.content.*;
+import android.content.pm.*;
 import android.content.res.*;
 import android.graphics.*;
 import android.net.*;
@@ -11,19 +12,21 @@ import android.view.*;
 import android.view.ViewGroup.*;
 import android.widget.*;
 import com.luajava.*;
+import dalvik.system.*;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.regex.*;
+import java.util.zip.*;
 
-public class Main extends Activity
+public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveListerer
 {
 
 	private LuaState L;
 	private String luaPath;
 	public String luaDir;
 
-		private StringBuilder toastbuilder = new StringBuilder();
+	private StringBuilder toastbuilder = new StringBuilder();
 	private Boolean isCreate = false;
 
 	public Handler handler;
@@ -53,7 +56,44 @@ public class Main extends Activity
 	public String luaCpath;
 	private boolean mInAsset=false;
 
+	private String extDir;
 
+	private String odexDir;
+
+	private String libDir;
+
+	private String luaExtDir;
+
+	private LuaBroadcastReceiver mReceiver;
+
+	public String getLuaExtDir()
+	{
+		return luaExtDir;
+	}
+	
+	public String getLuaExtDir(String name)
+	{
+		File dir=new File(luaExtDir + "/" + name);
+		if(!dir.exists())
+			if(!dir.mkdirs())
+				return null;
+		return dir.getAbsolutePath();
+	}
+	
+	public String getLuaDir()
+	{
+		return luaDir;
+	}
+
+	public String getLuaDir(String name)
+	{
+		File dir=new File(luaDir + "/" + name);
+		if(!dir.exists())
+			if(!dir.mkdirs())
+				return null;
+		return dir.getAbsolutePath();
+	}
+	
 	@Override
 	public void onCreate(Bundle savedInstanceState)
 	{//startForeground(1, new Notification()); 
@@ -63,14 +103,10 @@ public class Main extends Activity
 //		Intent intent=getIntent();
 //		int theme=intent.getIntExtra("theme", android.R.style.Theme_Holo_Light_NoActionBar);
 //		setTheme(theme);
-//
+
+
 		//设置print界面
 		super.onCreate(savedInstanceState);
-		/*LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-		 layout = (LinearLayout) inflater.inflate(R.layout.main, null);
-
-		 status = (TextView) layout.findViewById(R.id.status);
-		 */
 		layout = new LinearLayout(this);
 		layout.setBackgroundColor(Color.WHITE);
 		ScrollView scroll=new ScrollView(this);
@@ -79,33 +115,41 @@ public class Main extends Activity
 		status.setTextColor(Color.BLACK);
 		scroll.addView(status, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 		layout.addView(scroll, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-//		status.setMovementMethod(ScrollingMovementMethod.getInstance());
 		status.setText("");
 		status.setTextIsSelectable(true);
-		//status.setTypeface(Typeface.MONOSPACE);
-//		status.setHorizontallyScrolling(true);
-//		status.setEnabled(true)
 		//初始化AndroLua工作目录
-		String state = Environment.getExternalStorageState();
-		if (state.equals(Environment.MEDIA_MOUNTED))
+		if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED))
 		{
 			String sdDir = Environment.getExternalStorageDirectory().getAbsolutePath();
-			luaDir = sdDir + "/AndroLua";
+			luaExtDir = sdDir + "/AndroLua";
 		}
 		else
 		{
-//			luaDir = getFilesDir().getAbsolutePath();
-			sendMsg("No such sdcard");
-			setContentView(layout);
-			return;
-		}	
-		mThreadPool = Executors.newCachedThreadPool();
-		luaCpath=getApplicationInfo().nativeLibraryDir + "/lib?.so"+";"+getDir("lib",Context.MODE_PRIVATE).getAbsolutePath()+"/lib?.so";
-		//luaCpath="./?.so;" + getApplicationInfo().nativeLibraryDir+ "/lib?.so";
-		
-		File destDir = new File(luaDir);
+			File[] fs= new File("/storage").listFiles();
+			for (File f:fs)
+			{
+				String[] ls=f.list();
+				if (ls == null)
+					continue;
+				if (ls.length > 5)
+					luaExtDir = f.getAbsolutePath() + "/AndroLua";
+			}
+			if (luaExtDir == null)
+				luaExtDir = getDir("AndroLua", Context.MODE_PRIVATE).getAbsolutePath();
+		}
+		FragmentManager fm=getFragmentManager();
+		FragmentTransaction ft=fm.beginTransaction();
+		ft.add(1,new Fragment());
+		File destDir = new File(luaExtDir);
 		if (!destDir.exists())
 			destDir.mkdirs();
+
+		//定义文件夹
+		extDir = getFilesDir().getAbsolutePath();
+		odexDir = getDir("odex", Context.MODE_PRIVATE).getAbsolutePath();
+		libDir = getDir("lib", Context.MODE_PRIVATE).getAbsolutePath();
+		luaCpath = getApplicationInfo().nativeLibraryDir + "/lib?.so" + ";" + libDir + "/lib?.so";
+
 
 		handler = new MainHandler();
 
@@ -113,36 +157,50 @@ public class Main extends Activity
 		{
 			status.setText("");
 			Intent intent=getIntent();
-			Uri uri=intent.getData(); 
+			Uri uri=intent.getData();
+			Object[] arg=(Object[]) intent.getSerializableExtra("arg");
+			if (arg == null)
+				arg = new Object[0];
+			String path = null;
 			if (uri != null)
 			{
-				String path = uri.getPath();
-
-				if (Pattern.matches("^/[\\w_]+$", path))
+				path = uri.getPath();
+				if (path.indexOf("/android_asset") == 0)
 				{
 					initLua();
-					path = path.substring(1, path.length());
-					//doString("require \"" + path + "\"");
-					mInAsset=true;
-					doAsset(path + ".lua");
+					path = path.substring("/android_asset/".length(), path.length());
+					mInAsset = true;
 				}
 				else
 				{
 					luaPath = path;
 					luaDir = luaPath.substring(0, luaPath.lastIndexOf("/"));
-					initLua();
-//					Jlua.init(L);				
-					doFile(luaPath);
 				}
 			}
 			else
 			{
-				initLua();
-//				Jlua.init(L);
-				mInAsset=true;
-				doAsset("main");
-				//doFile(luaDir+"/new.lua");
+				path = extDir + "/main.lua";
+				luaPath = path;
+				luaDir = extDir;
 			}
+			initLua();
+			checkInfo();
+
+			if (mInAsset && path != null)
+			{
+				doAsset(path, arg);
+			}
+			else if (path != null)
+			{
+				doFile(path, arg);
+			}
+			else
+			{
+				mInAsset = true;
+				doAsset("main", arg);
+			}
+
+
 			isCreate = true;
 			runFunc("onCreate", savedInstanceState);
 			if (!isSetViewed)
@@ -170,10 +228,294 @@ public class Main extends Activity
 
 	}
 
+	public void checkInfo()
+	{
+		try
+		{
+			PackageInfo packageInfo=getPackageManager().getPackageInfo(this.getPackageName(), 0);
+			long lastTime=packageInfo.lastUpdateTime;
+			String versionName=packageInfo.versionName;
+			SharedPreferences info=getSharedPreferences("appInfo", 0);
+			long oldLastTime=info.getLong("lastUpdateTime", 0);
+			if (oldLastTime != lastTime)
+			{
+				SharedPreferences.Editor edit=info.edit();
+				edit.putLong("lastUpdateTime", lastTime);
+				edit.commit();
+				onUpdata(lastTime, oldLastTime);
+			}
+			String oldVersionName=info.getString("versionName", "");
+			if (!versionName.equals(oldVersionName))
+			{
+				SharedPreferences.Editor edit=info.edit();
+				edit.putString("versionName", versionName);
+				edit.commit();
+				onVersionChanged(versionName, oldVersionName);
+			}
+		}
+		catch (PackageManager.NameNotFoundException e)
+		{
+
+		}
+
+	}
+
+
+	private void onVersionChanged(String versionName, String oldVersionName)
+	{
+		// TODO: Implement this method
+		runFunc("onVersionChanged", versionName, oldVersionName);
+	}
+
+	private void onUpdata(long lastTime, long oldLastTime)
+	{
+		try
+		{
+			unApk("assets");
+		}
+		catch (IOException e)
+		{
+			sendMsg(e.getMessage());
+		}
+	}
+
+	private void unApk(String dir) throws IOException
+	{
+		int i=dir.length() + 1;
+		ZipFile zip=new ZipFile(getApplicationInfo().publicSourceDir);
+		Enumeration<? extends ZipEntry> entries=zip.entries();
+		while (entries.hasMoreElements())
+		{
+			ZipEntry entry=entries.nextElement();
+			String name=entry.getName();
+			if (name.indexOf(dir) != 0)
+				continue;
+			String path=name.substring(i);
+			if (entry.isDirectory())
+			{
+				File f=new File(extDir + File.separator + path);
+				if (!f.exists())
+					f.mkdirs();
+			}
+			else
+			{
+				File temp=new File(extDir + File.separator + path).getParentFile();
+                if (!temp.exists())
+				{
+                    if (!temp.mkdirs())
+					{
+                        throw new RuntimeException("create file " + temp.getName() + " fail");
+                    }
+                }
+				
+				FileOutputStream out=new FileOutputStream(extDir + File.separator + path);
+				InputStream in=zip.getInputStream(entry);
+				byte[] buf=new byte[4096];
+				int count=0;
+				while ((count = in.read(buf)) != -1)
+				{
+					out.write(buf, 0, count);
+				}
+				out.close();
+				in.close();
+			}
+		}
+		zip.close();
+	}
+
+
+	private boolean unAssets(String dir) throws IOException
+	{
+		// TODO: Implement this method
+		AssetManager am=getAssets();
+
+		String[] list=am.list(dir);
+		if (list.length == 0)
+			return false;
+
+		File d=new File(extDir + "/" + dir);
+		if (!d.exists())
+			d.mkdirs();
+
+		for (String name:list)
+		{
+			String path;
+			if (dir.length() == 0)
+			{
+				path = name;
+				if (path.equals("images") || path.equals("sounds") || path.equals("webkit"))
+					continue;
+			}
+			else
+				path = dir + "/" + name;
+			//images、sounds、webkit
+			if (unAssets(path))
+				continue;
+			if (name.lastIndexOf(".so") > 1)
+			{
+				assetsToSD(path, libDir + "/" + path);
+			}
+			else
+			{
+				assetsToSD(path, extDir + "/" + path);
+			}
+
+		}
+		return true;
+	}
+
+
+	/** 
+	 * 解压Assets中的文件 
+	 * @param context上下文对象 
+	 * @param assetName压缩包文件名 
+	 * @param outputDirectory输出目录 
+	 * @throws IOException 
+	 */
+	public void unZipAssets(String assetName, String outputDirectory) throws IOException
+	{  
+		//创建解压目标目录  
+		File file = new File(outputDirectory);  
+		//如果目标目录不存在，则创建  
+		if (!file.exists())
+		{  
+			file.mkdirs();  
+		}  
+		InputStream inputStream = null;  
+		//打开压缩文件  
+		inputStream = this.getAssets().open(assetName);  
+		ZipInputStream zipInputStream = new ZipInputStream(inputStream);  
+		//读取一个进入点  
+		ZipEntry zipEntry = zipInputStream.getNextEntry();  
+		//使用1Mbuffer  
+		byte[] buffer = new byte[1024 * 32];  
+		//解压时字节计数  
+		int count = 0;  
+		//如果进入点为空说明已经遍历完所有压缩包中文件和目录  
+		while (zipEntry != null)
+		{  
+			//如果是一个目录  
+			if (zipEntry.isDirectory())
+			{  
+				//String name = zipEntry.getName();  
+				//name = name.substring(0, name.length() - 1);  
+				file = new File(outputDirectory + File.separator + zipEntry.getName());  
+				file.mkdir();  
+			}
+			else
+			{  
+				//如果是文件  
+				file = new File(outputDirectory + File.separator  
+								+ zipEntry.getName());  
+				//创建该文件  
+				file.createNewFile();  
+				FileOutputStream fileOutputStream = new FileOutputStream(file);  
+				while ((count = zipInputStream.read(buffer)) > 0)
+				{  
+					fileOutputStream.write(buffer, 0, count);  
+				}  
+				fileOutputStream.close();  
+			}  
+			//定位到下一个文件入口  
+			zipEntry = zipInputStream.getNextEntry();  
+		}  
+		zipInputStream.close();  
+	}  
+
+
 	public boolean isInAsset()
 	{
 		return mInAsset;
 	}
+
+	public LuaState getLuaState()
+	{
+		return L;
+	}
+
+	public DexClassLoader loadDex(String path)
+	{
+		if(path.charAt(0)!='/')
+		if (isInAsset())
+			path = extDir + "/" + path;
+		else
+			path = luaDir + "/" + path;
+		return new DexClassLoader(path, odexDir, getApplicationInfo().nativeLibraryDir, getClassLoader());
+	}
+
+	public Object loadLib(String name) throws LuaException
+	{
+		int i=name.indexOf(".");
+		String fn = name;
+		if (i > 0)
+			fn = name.substring(0, i);
+		File f=new File(libDir + "/lib" + fn + ".so");
+		if (!f.exists())
+		{
+			f=new File(luaDir + "/lib" + fn+".so");
+			if (!f.exists())
+				throw new LuaException("can not find lib "+name);
+			copyFile(luaDir + "/lib" + fn+".so",libDir + "/lib" + fn+".so");
+		}
+		LuaObject require=L.getLuaObject("require");
+		return require.call(name);
+	}
+
+	private void copyFile(String oldPath, String newPath) { 
+		try { 
+			int bytesum = 0; 
+			int byteread = 0; 
+			File oldfile = new File(oldPath); 
+			if (oldfile.exists()) { //文件存在时 
+				InputStream inStream = new FileInputStream(oldPath); //读入原文件 
+				FileOutputStream fs = new FileOutputStream(newPath); 
+				byte[] buffer = new byte[4096]; 
+				int length; 
+				while ( (byteread = inStream.read(buffer)) != -1) { 
+					bytesum += byteread; //字节数 文件大小 
+					System.out.println(bytesum); 
+					fs.write(buffer, 0, byteread); 
+				} 
+				inStream.close(); 
+			} 
+		} 
+		catch (Exception e) { 
+			System.out.println("复制文件操作出错"); 
+			e.printStackTrace(); 
+
+		} 
+
+	} 
+	
+	public Intent registerReceiver(LuaBroadcastReceiver receiver, IntentFilter filter)
+	{
+		// TODO: Implement this method
+		return super.registerReceiver(receiver, filter);
+	}
+
+	public Intent registerReceiver(LuaBroadcastReceiver.OnReceiveListerer ltr, IntentFilter filter)
+	{
+		// TODO: Implement this method
+		LuaBroadcastReceiver receiver=new LuaBroadcastReceiver(ltr);
+		return super.registerReceiver(receiver, filter);
+	}
+	
+	public Intent registerReceiver(IntentFilter filter)
+	{
+		// TODO: Implement this method
+		if(mReceiver!=null)
+			unregisterReceiver(mReceiver);
+		mReceiver=new LuaBroadcastReceiver(this);
+		return super.registerReceiver(mReceiver, filter);
+	}
+	
+	@Override
+	public void onReceive(Context context, Intent intent)
+	{
+		// TODO: Implement this method
+		runFunc("onReceive",context,intent);
+	}
+	
 	
 	@Override
 	public void onContentChanged()
@@ -321,6 +663,18 @@ public class Main extends Activity
 		return super.onCreateOptionsMenu(menu);
 	}
 
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item)
+	{
+		// TODO: Implement this method
+		Object ret = null;
+		if (!item.hasSubMenu())
+			ret = runFunc("onOptionsItemSelected", item);
+		if (ret != null && ret.getClass() == Boolean.class && (boolean)ret)
+			return true;
+		return super.onOptionsItemSelected(item);
+	}
+
 	public Menu getOptionsMenu()
 	{
 		return optionsMenu;
@@ -330,9 +684,11 @@ public class Main extends Activity
 	public boolean onMenuItemSelected(int featureId, MenuItem item)
 	{
 		// TODO: Implement this method
-		runFunc("onMenuItemSelected", featureId, item);
+		if (!item.hasSubMenu())
+			runFunc("onMenuItemSelected", featureId, item);
 		return super.onMenuItemSelected(featureId, item);
 	}
+
 
 	@Override
 	public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo)
@@ -363,28 +719,92 @@ public class Main extends Activity
 
 	public void newActivity(String path)
 	{
+		newActivity(1,path,null);
+	}
+	
+	public void newActivity(String path, Object[] arg)
+	{
+		newActivity(1,path,arg);
+	}
+	
+	public void newActivity(int req, String path)
+	{
+		newActivity(req,path,null);
+	}
+
+	public void newActivity(int req, String path, Object[] arg)
+	{
 		Intent intent = new Intent(this, Main.class);
-		if (Pattern.matches("^\\w+$", path))
+		if (path.charAt(0)!='/')
 			if (isInAsset())
-				intent.setData(Uri.parse("file:/" + path));
+				intent.setData(Uri.parse("file:/android_asset/" + path + ".lua"));
 			else
 				intent.setData(Uri.parse("file://" + luaDir + "/" + path + ".lua"));
 		else
 			intent.setData(Uri.parse("file://" + path));
 
-		startActivityForResult(intent, 1);
-		overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
-	}
-
-	public void newActivity(int req, String path)
-	{
-		Intent intent = new Intent(this, Main.class);
-		intent.setData(Uri.parse("file://" + path));
+		if(arg!=null)
+			intent.putExtra("arg", arg);
 		startActivityForResult(intent, req);
 		overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
 	}
 
+	public LuaAsyncTask newTask(LuaObject func) throws LuaException
+	{
+		return newTask(func, null, null);
+	}
 
+	public LuaAsyncTask newTask(LuaObject func, LuaObject callback) throws LuaException
+	{
+		return newTask(func, null, callback);
+	}
+
+	public LuaAsyncTask newTask(LuaObject func, LuaObject update, LuaObject callback) throws LuaException
+	{
+		return new LuaAsyncTask(this, func, update, callback);
+	}
+
+	public LuaThread newThread(LuaObject func) throws LuaException
+	{
+		return newThread(func, null);
+	}
+
+	public LuaThread newThread(LuaObject func, Object[] arg) throws LuaException
+	{
+		LuaThread thread= new LuaThread(this, func, true, arg);
+		threadList.add(thread);
+		return thread;
+	}
+
+	public LuaTimer newTimer(LuaObject func) throws LuaException
+	{
+		return newTimer(func, null);
+	}
+
+	public LuaTimer newTimer(LuaObject func, Object[] arg) throws LuaException
+	{
+		return new LuaTimer(this, func, arg);
+	}
+
+	
+	public Bitmap loadBitmap(String path) throws IOException
+	{
+		return LuaBitmap.getBitmap(this,path);
+	}
+	
+	public void setContentView(LuaObject layout) throws LuaException
+	{
+		setContentView(layout,null);
+	}
+	
+	public void setContentView(LuaObject layout, LuaObject env) throws LuaException
+	{
+		// TODO: Implement this method
+		LuaObject loadlayout=L.getLuaObject("loadlayout");
+		View view=(View) loadlayout.call(layout,env);
+		super.setContentView(view);
+	}
+	
 	
 //初始化lua使用的Java函数
 	private void initLua() throws Exception
@@ -393,29 +813,36 @@ public class Main extends Activity
 		L.openLibs();
 		L.pushJavaObject(this);
 		L.setGlobal("activity");
+		L.getGlobal("activity");
+		L.setGlobal("this");
 
 		L.getGlobal("luajava"); 
+		L.pushString(luaExtDir);
+		L.setField(-2, "luaextdir");
 		L.pushString(luaDir);
 		L.setField(-2, "luadir"); 
 		L.pushString(luaPath);
 		L.setField(-2, "luapath"); 
 		L.pop(1);
 
-		JavaFunction print = new LuaPrint(this,L);
+		JavaFunction print = new LuaPrint(this, L);
 		print.register("print");
 
-		JavaFunction assetLoader = new LuaAssetLoader(this,L); 
+		JavaFunction assetLoader = new LuaAssetLoader(this, L); 
 
 		L.getGlobal("package"); 
 		L.getField(-1, "loaders"); 
-		int nLoaders = L.objLen(-1); 
-		for (int i=nLoaders;i >= 2;i--)
+		int nLoaders = L.objLen(-1);
+		int idx=3;
+		if (isInAsset())
+			idx = 2;
+		for (int i=nLoaders;i >= idx;i--)
 		{
 			L.rawGetI(-1, i);
 			L.rawSetI(-2, i + 1);
 		}
 		L.pushJavaFunction(assetLoader); 
-		L.rawSetI(-2, 2);
+		L.rawSetI(-2, idx);
 		L.pop(1);          
 
 		L.pushString(luaDir + "/?.lua;" + luaDir + "/lua/?.lua;" + luaDir + "/?/init.lua;");
@@ -472,11 +899,22 @@ public class Main extends Activity
 	}
 
 //运行lua脚本
-	private void doFile(String filePath) 
+	public Object doFile(String filePath) 
+	{
+		return doFile(filePath,new Object[0]);
+	}
+	
+	public Object doFile(String filePath, Object[] args) 
 	{
 		int ok = 0;
 		try
 		{
+			if (filePath.charAt(0)!='/')
+				if (isInAsset())
+					return doAsset(filePath);
+				else
+					filePath=luaDir + "/" + filePath;
+			
 			L.setTop(0);
 			ok = L.LloadFile(filePath);
 
@@ -486,11 +924,15 @@ public class Main extends Activity
 				L.getField(-1, "traceback");
 				L.remove(-2);
 				L.insert(-2);
-				ok = L.pcall(0, 0, -2);
+				int l=args.length;
+				for (int i=0;i < l;i++)
+				{
+					L.pushObjectValue(args[i]);
+				}
+				ok = L.pcall(l, 1, -2 - l);
 				if (ok == 0)
 				{				
-//					setResult(ok);
-					return;
+					return L.toJavaObject(-1);
 				}
 			}
 			Intent res= new Intent();
@@ -500,15 +942,15 @@ public class Main extends Activity
 		} 
 		catch (LuaException e)
 		{			
-//			Toast.makeText(Main.this, e.getMessage(), Toast.LENGTH_LONG).show();
 			setTitle(errorReason(ok));
 			setContentView(layout);
 			sendMsg(e.getMessage());
 		}
 
+		return null;
 	}
 
-	public void doAsset(String name) 
+	public Object doAsset(String name, Object...args) 
 	{
 		int ok = 0;
 		try
@@ -523,10 +965,15 @@ public class Main extends Activity
 				L.getField(-1, "traceback");
 				L.remove(-2);
 				L.insert(-2);
-				ok = L.pcall(0, 0, -2);
+				int l=args.length;
+				for (int i=0;i < l;i++)
+				{
+					L.pushObjectValue(args[i]);
+				}
+				ok = L.pcall(l, 0, -2 - l);
 				if (ok == 0)
 				{				
-					return;
+					return L.toJavaObject(-1);
 				}
 			}
 			throw new LuaException(errorReason(ok) + ": " + L.toString(-1));
@@ -538,12 +985,13 @@ public class Main extends Activity
 			sendMsg(e.getMessage());
 		}
 
+		return null;
 	}
 
 //运行lua函数
-	private Object runFunc(String funcName, Object...args)
+	public Object runFunc(String funcName, Object...args)
 	{
-		if (isCreate)
+		if (L != null)
 		{
 			try
 			{
@@ -575,13 +1023,13 @@ public class Main extends Activity
 				sendMsg(funcName + " " + e.getMessage());
 			}
 		}	
-		return false;
+		return null;
 	}
 
 
 
 //运行lua代码
-	private void doString(String funcSrc, Object... args)
+	public Object doString(String funcSrc, Object... args)
 	{
 		try
 		{
@@ -604,7 +1052,7 @@ public class Main extends Activity
 				ok = L.pcall(l, 1, -2 - l);
 				if (ok == 0)
 				{				
-					return ;
+					return L.toJavaObject(-1);
 				}
 			}
 			throw new LuaException(errorReason(ok) + ": " + L.toString(-1)) ;
@@ -613,6 +1061,7 @@ public class Main extends Activity
 		{
 			sendMsg(e.getMessage());
 		}
+		return null;
 	}
 
 
@@ -621,6 +1070,10 @@ public class Main extends Activity
 	{
 		switch (error)
 		{
+			case 6:
+				return "error error";
+			case 5:
+				return "GC error";
 			case 4:
 				return "Out of memory";
 			case 3:
@@ -774,10 +1227,10 @@ public class Main extends Activity
 		handler.sendMessage(message);
 
 	}
-	
-	
 
-	
+
+
+
 
 	public class MainHandler extends Handler
 	{
@@ -819,9 +1272,5 @@ public class Main extends Activity
 					}
 			}
 		}
-
-	
-
-	
-
-}}
+	}
+}

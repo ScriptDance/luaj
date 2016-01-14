@@ -4,6 +4,7 @@ LOCAL_PATH := $(call my-dir)
 # compiled as static library to embed in liblua-activity.so
 include $(CLEAR_VARS)
 LOCAL_MODULE := lua
+LOCAL_CFLAGS += -std=c99
 LOCAL_SRC_FILES := \
 	lapi.c \
 	lauxlib.c \

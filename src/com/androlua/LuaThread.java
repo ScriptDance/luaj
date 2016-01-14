@@ -59,7 +59,7 @@ public class LuaThread extends Thread implements Runnable
 	}
 	public LuaThread(Main main, LuaObject func, boolean isLoop) throws LuaException
 	{
-		this(main, func, false,null);
+		this(main, func, isLoop,null);
 	}
 	
 	public LuaThread(Main main, LuaObject func, boolean isLoop, Object[] arg) throws LuaException
@@ -190,6 +190,10 @@ public class LuaThread extends Thread implements Runnable
 	{
 		switch (error)
 		{
+			case 6:
+				return "error error";
+			case 5:
+				return "GC error";
 			case 4:
 				return "Out of memory";
 			case 3:
@@ -202,6 +206,7 @@ public class LuaThread extends Thread implements Runnable
 		return "Unknown error " + error;
 	}
 
+
 	private void initLua() throws LuaException
 	{		
 		L = LuaStateFactory.newLuaState();
@@ -209,8 +214,8 @@ public class LuaThread extends Thread implements Runnable
 		L.pushJavaObject(mMain);
 		L.setGlobal("activity");
 		L.pushJavaObject(this);
-		L.setGlobal("thread");
-
+		L.setGlobal("this");
+		
 		JavaFunction print = new LuaPrint(mMain,L);
 		print.register("print");
 
@@ -219,16 +224,18 @@ public class LuaThread extends Thread implements Runnable
 		L.getGlobal("package"); 
 		L.getField(-1, "loaders");
 		int nLoaders = L.objLen(-1);
-		for (int i=nLoaders;i >= 2;i--)
+		int idx=3;
+		if(mMain.isInAsset())
+			idx=2;
+		for (int i=nLoaders;i >= idx;i--)
 		{
 			L.rawGetI(-1, i);
 			L.rawSetI(-2, i + 1);
 		}
 		L.pushJavaFunction(assetLoader); 
-		L.rawSetI(-2, 2);
-
-		L.pop(1);
-
+		L.rawSetI(-2, idx);
+		L.pop(1);          
+		
 		L.pushString(luaDir + "/?.lua;" + luaDir + "/lua/?.lua;" + luaDir + "/?/init.lua;");
 		L.setField(-2, "path");
 		L.pushString(luaCpath);

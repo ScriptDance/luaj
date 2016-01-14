@@ -746,7 +746,7 @@ int jValueD(lua_State * L)
 	jvalue value;
 	jvalue *userData;
 
-	value.d = (double)lua_tonumber(L, 1);
+	value.d = (jdouble)lua_tonumber(L, 1);
 	userData = (jvalue *) lua_newuserdata(L, sizeof(jvalue));
 	*userData = value;
 	return 1;
@@ -757,7 +757,7 @@ int jValueF(lua_State * L)
 	jvalue value;
 	jvalue *userData;
 
-	value.f = (float)lua_tonumber(L, 1);
+	value.f = (jfloat)lua_tonumber(L, 1);
 	userData = (jvalue *) lua_newuserdata(L, sizeof(jvalue));
 	*userData = value;
 	return 1;
@@ -768,7 +768,7 @@ int jValueJ(lua_State * L)
 	jvalue value;
 	jvalue *userData;
 
-	value.j = (long)lua_tointeger(L, 1);
+	value.j = (jlong)lua_tointeger(L, 1);
 	userData = (jvalue *) lua_newuserdata(L, sizeof(jvalue));
 	*userData = value;
 	return 1;
@@ -779,7 +779,7 @@ int jValueI(lua_State * L)
 	jvalue value;
 	jvalue *userData;
 
-	value.i = (int)lua_tointeger(L, 1);
+	value.i = (jint)lua_tointeger(L, 1);
 	userData = (jvalue *) lua_newuserdata(L, sizeof(jvalue));
 	*userData = value;
 	return 1;
@@ -790,7 +790,7 @@ int jValueS(lua_State * L)
 	jvalue value;
 	jvalue *userData;
 
-	value.s = (short)lua_tointeger(L, 1);
+	value.s = (jshort)lua_tointeger(L, 1);
 	userData = (jvalue *) lua_newuserdata(L, sizeof(jvalue));
 	*userData = value;
 	return 1;
@@ -800,7 +800,7 @@ int jValueC(lua_State * L)
 	jvalue value;
 	jvalue *userData;
 
-	value.c = (char)lua_tointeger(L, 1);
+	value.c = (jchar)lua_tointeger(L, 1);
 	userData = (jvalue *) lua_newuserdata(L, sizeof(jvalue));
 	*userData = value;
 	return 1;

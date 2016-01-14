@@ -15,11 +15,25 @@ https://qr.alipay.com/apt7ujjb4jngmu3z9a
 
 本程序使用了以下开源项目部分代码
 
-bson,crypt,lua-md5
+bson,crypt,md5
 https://github.com/cloudwu/skynet
 
-cjson,filesystem,lsqlite3,zlib,xml
+cjson
+https://sourceforge.net/projects/cjson/
+
+zlib
+https://github.com/brimworks/lua-zlib
+
+xml
 https://github.com/chukong/quick-cocos2d-x
+
+luv
+https://github.com/luvit/luv
+https://github.com/clibs/uv
+
+zip
+https://github.com/brimworks/lua-zip
+https://github.com/julienr/libzip-android
 
 luagl
 http://luagl.sourceforge.net/
@@ -36,10 +50,23 @@ canvas
 jni
 由nirenr开发
 
+lfs(未内置)
+https://github.com/keplerproject/luafilesystem
+
+lsqlite3(未内置)
+https://github.com/LuaDist/lsqlite3
+
+openssl(未内置)
+https://github.com/wahern/luaossl
+https://github.com/mkottman/luacrypto
+https://github.com/brunoos/luasec
+https://github.com/guardianproject/openssl-android
+
+
 与标准Lua5.3.1的区别
 1，增加string.gfind函数，用于迭代查找字符串位置，
 2，修改os.clock适应安卓的CPU机制
-3，增加table.foreach兼容Lua5.1
+3，增加table.foreach兼容Lua5.0
 
 1，参考链接
 关于lua的语法和Android API请参考以下网页。

@@ -22,6 +22,8 @@ public class LuaAsyncTask extends AsyncTask
 
 	private String luaCpath;
 
+	private LuaObject mUpdate;
+
 	public LuaAsyncTask(Main main,String src,LuaObject callback) throws LuaException
 	{
 		mMain=main;
@@ -41,11 +43,41 @@ public class LuaAsyncTask extends AsyncTask
 		mCallback=callback;
 	}
 
-
-	public void execute(LuaObject params) throws IllegalArgumentException, ArrayIndexOutOfBoundsException, LuaException
+	public LuaAsyncTask(Main main,LuaObject func,LuaObject update,LuaObject callback) throws LuaException
+	{
+		mMain=main;
+		luaDir=main.luaDir;
+		luaCpath=mMain.luaCpath;
+		mBuffer=func.dump();
+		mUpdate=update;
+		mCallback=callback;
+	}
+	
+	/*public void execute(Object[] params) throws IllegalArgumentException, ArrayIndexOutOfBoundsException, LuaException
 	{
 		// TODO: Implement this method
-		super.execute(params.asArray());
+		super.execute(params);
+	}
+	*/
+	public void execute() throws IllegalArgumentException, ArrayIndexOutOfBoundsException, LuaException
+	{
+		// TODO: Implement this method
+		super.execute();
+	}
+	
+	public void update(Object msg)
+	{
+		publishProgress(msg);
+	}
+	
+	public void update(String msg)
+	{
+		publishProgress(msg);
+	}
+	
+	public void update(int msg)
+	{
+		publishProgress(msg);
 	}
 	
 	@Override
@@ -55,7 +87,9 @@ public class LuaAsyncTask extends AsyncTask
 		L.openLibs();
 		L.pushJavaObject(mMain);
 		L.setGlobal("activity");
-
+		L.pushJavaObject(this);
+		L.setGlobal("this");
+		
 		L.getGlobal("luajava");
 		L.pushString(luaDir);
 		L.setField(-2, "luadir"); 
@@ -63,24 +97,39 @@ public class LuaAsyncTask extends AsyncTask
 
 		try
 		{
-			JavaFunction print = new LuaPrint(L);
+			JavaFunction print = new LuaPrint(mMain,L);
 			print.register("print");
 
-			JavaFunction assetLoader = new LuaAssetLoader(L); 
+			JavaFunction update = new JavaFunction(L){
+
+				@Override
+				public int execute() throws LuaException
+				{
+					// TODO: Implement this method
+					update(L.toJavaObject(2));
+					return 0;
+				}
+			};
+			
+			update.register("update");
+			
+			JavaFunction assetLoader = new LuaAssetLoader(mMain,L); 
 
 			L.getGlobal("package");  
 			L.getField(-1, "loaders");
 			int nLoaders = L.objLen(-1);
-			for (int i=nLoaders;i >= 2;i--)
+			int idx=3;
+			if(mMain.isInAsset())
+				idx=2;
+			for (int i=nLoaders;i >= idx;i--)
 			{
 				L.rawGetI(-1, i);
 				L.rawSetI(-2, i + 1);
 			}
 			L.pushJavaFunction(assetLoader); 
-			L.rawSetI(-2, 2);
-
-			L.pop(1);
-
+			L.rawSetI(-2, idx);
+			L.pop(1);          
+			
 			L.pushString("./?.lua;" + luaDir + "/?.lua;" + luaDir + "/lua/?.lua;" + luaDir + "/?/init.lua;");
 			L.setField(-2, "path");
 			L.pushString(luaCpath);
@@ -107,10 +156,14 @@ public class LuaAsyncTask extends AsyncTask
 				{
 					L.pushObjectValue(args[i]);
 				}
-				ok = L.pcall(l, 1, -2 - l);
+				ok = L.pcall(l, LuaState.LUA_MULTRET, -2 - l);
 				if (ok == 0)
-				{				
-					return L.toJavaObject(-1);
+				{
+					int n=L.getTop()-1;
+					Object[] ret=new Object[n];
+					for(int i=0;i<n;i++)
+						ret[i]=L.toJavaObject(i+2);
+					return ret;
 				}
 			}
 			throw new LuaException(errorReason(ok) + ": " + L.toString(-1));
@@ -131,7 +184,8 @@ public class LuaAsyncTask extends AsyncTask
 
 		try
 		{
-			mCallback.call(result);
+			if(mCallback!=null)
+				mCallback.call((Object[])result);
 		}
 		catch (LuaException e)
 		{
@@ -143,10 +197,30 @@ public class LuaAsyncTask extends AsyncTask
 		//L.close();
 	}
 	
+	@Override
+	protected void onProgressUpdate(Object[] values)
+	{
+		// TODO: Implement this method
+		try
+		{
+			if (mUpdate != null)
+				mUpdate.call(values);
+		}
+		catch (LuaException e)
+		{
+			mMain.sendMsg(e.getMessage());
+		}
+		super.onProgressUpdate(values);
+	}
+	
 	private String errorReason(int error)
 	{
 		switch (error)
 		{
+			case 6:
+				return "error error";
+			case 5:
+				return "GC error";
 			case 4:
 				return "Out of memory";
 			case 3:
@@ -157,90 +231,6 @@ public class LuaAsyncTask extends AsyncTask
 				return "Yield error";
 		}
 		return "Unknown error " + error;
-	}
-	
-	
-	public class LuaAssetLoader extends JavaFunction
-	{
-
-		protected LuaState L;
-
-		public LuaAssetLoader(LuaState L)
-		{
-			super(L);
-			this.L = L;
-		}
-
-		@Override
-		public int execute() throws LuaException
-		{
-			String name = L.toString(-1);
-			name = name.replace('.', '/') + ".lua";
-			try
-			{
-				byte[] bytes = mMain.readAsset(name);
-				int ok=L.LloadBuffer(bytes, name);
-				if (ok != 0)
-					L.pushString("\n\t" + L.toString(-1));
-				return 1;
-			}
-			catch (IOException e)
-			{
-				L.pushString("\n\tno file \'/assets/" + name + "\'");
-				return 1;
-			}
-		}
-
-	}
-
-	public class LuaPrint extends JavaFunction
-	{
-
-		protected LuaState L;
-
-		public LuaPrint(LuaState L)
-		{
-			super(L);
-			this.L = L;
-		}
-
-		@Override
-		public int execute() throws LuaException
-		{
-			if (L.getTop() < 2)
-			{
-				mMain.sendMsg("");
-				return 0;
-			}
-			for (int i = 2; i <= L.getTop(); i++)
-			{
-				int type = L.type(i);
-				String val = null;
-				String stype = L.typeName(type);
-				if (stype.equals("userdata"))
-				{
-					Object obj = L.toJavaObject(i);
-					if (obj != null)
-						val = obj.toString();
-				}
-				else if (stype.equals("boolean"))
-				{
-					val = L.toBoolean(i) ? "true" : "false";
-				}
-				else
-				{
-					val = L.toString(i);
-				}
-				if (val == null)
-					val = stype;						
-				output.append("\t");
-				output.append(val);
-				output.append("\t");
-			}
-			mMain.sendMsg(output.toString().substring(1, output.length() - 1));
-			output.setLength(0);
-			return 0;
-		}
 	}
 	
 }
