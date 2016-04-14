@@ -1,14 +1,12 @@
 package com.myopicmobile.textwarrior.android;
 import android.content.*;
-import android.widget.*;
-import java.util.*;
-import com.myopicmobile.textwarrior.android.AutoCompletePanel.*;
-import com.myopicmobile.textwarrior.common.*;
-import android.view.*;
-import android.util.*;
+import android.content.res.*;
 import android.graphics.drawable.*;
+import android.view.*;
+import android.widget.*;
 import android.widget.AdapterView.*;
-import java.net.*;
+import com.myopicmobile.textwarrior.common.*;
+import java.util.*;
 
 public class AutoCompletePanel
 {
@@ -33,6 +31,7 @@ public class AutoCompletePanel
 		_textField = textField;
 		_context = textField.getContext();
 		initAutoCompletePanel();
+				
 	}
 
 
@@ -45,9 +44,19 @@ public class AutoCompletePanel
 		//_autoCompletePanel.setDropDownGravity(Gravity.BOTTOM | Gravity.LEFT);
 		_filter = _adapter.getFilter();
 		setHeight(300);
+		
+		TypedArray array = _context.getTheme().obtainStyledAttributes(new int[] {  
+																		  android.R.attr.colorBackground, 
+																		  android.R.attr.textColorPrimary, 
+																	  }); 
+		int backgroundColor = array.getColor(0, 0xFF00FF); 
+		int textColor = array.getColor(1, 0xFF00FF); 
+		array.recycle();
+		
 		GradientDrawable gd=new GradientDrawable();
-		gd.setColor(0xffdddddd);
-		gd.setCornerRadius(2);
+		gd.setColor(backgroundColor);
+		gd.setCornerRadius(4);
+		gd.setStroke(1,textColor);
 		_autoCompletePanel.setBackgroundDrawable(gd);
 		_autoCompletePanel.setOnItemClickListener(new OnItemClickListener(){
 
@@ -141,7 +150,7 @@ public class AutoCompletePanel
 	/**
 	 * Adapter定义
 	 */
-	class MyAdapter extends ArrayAdapter<String> implements Filterable
+	class MyAdapter extends ArrayListAdapter<String> implements Filterable
 	{
 
 		private int _h;
@@ -241,13 +250,13 @@ public class AutoCompletePanel
 								if (k.indexOf(keyword) == 0)
 									buf.add(k);
 							}
-							keywords = _globalLanguage.getNames();
+							keywords = _globalLanguage.getKeywords();
 							for (String k:keywords)
 							{
 								if (k.indexOf(keyword) == 0)
 									buf.add(k);
 							}
-							keywords = _globalLanguage.getKeywords();
+							keywords = _globalLanguage.getNames();
 							for (String k:keywords)
 							{
 								if (k.indexOf(keyword) == 0)
@@ -272,7 +281,8 @@ public class AutoCompletePanel
 						// 有过滤结果，显示自动完成列表
 						MyAdapter.this.clear();   // 清空旧列表
 						MyAdapter.this.addAll((ArrayList<String>)results.values);
-						int y = _textField.getPaintBaseline(_textField.getCaretRow()) - _textField.getScrollY();
+						//int y = _textField.getPaintBaseline(_textField.getCaretRow()) - _textField.getScrollY();
+						int y = _textField.getCaretY()+_textField.rowHeight()/2-_textField.getScrollY();
 						setHeight(getItemHeight() * Math.min(2, results.count));
 						setHorizontalOffset(_textField.getCaretX() - _textField.getScrollX());
 						setVerticalOffset(y - _textField.getHeight());//_textField.getCaretY()-_textField.getScrollY()-_textField.getHeight());

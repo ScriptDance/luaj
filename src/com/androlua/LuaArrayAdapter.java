@@ -4,48 +4,96 @@ import android.widget.*;
 import android.content.*;
 import android.view.*;
 import com.luajava.*;
+import android.util.*;
+import android.graphics.*;
+import android.graphics.drawable.*;
+import java.util.*;
 
-public class LuaArrayAdapter extends ArrayAdapter
+public class LuaArrayAdapter extends ArrayListAdapter
 {
 
 	private Main mContext;
 
-	private String[] mObjects;
-	
 	private LuaState L;
 
-	private LuaObject mFields;
-	public LuaArrayAdapter(Main context,LuaObject fields,String[] objects)
+	private LuaObject mResource;
+
+	private LuaObject loadlayout;
+
+	private String[] mObjects;
+	
+	
+	public LuaArrayAdapter(Main context,LuaObject resource,String[] objects) throws LuaException
 	{
 		super(context,0,objects);
-		mFields=fields;
-		mContext=context;
 		mObjects=objects;
-		L=mContext.getLuaState();
+		mContext=context;
+		mResource = resource;
+		L = context.getLuaState();
+		loadlayout = L.getLuaObject("loadlayout");
+		L.newTable();
+		loadlayout.call(mResource, L.getLuaObject(-1) , AbsListView.class);
+		L.pop(1);
 	}
 
+	@Override
+	public View getDropDownView(int position, View convertView, ViewGroup parent)
+	{
+		// TODO: Implement this method
+		return getView(position, convertView, parent);
+	}
+	
 	@Override
 	public View getView(int position, View convertView, ViewGroup parent)
 	{
 		// TODO: Implement this method
-		TextView tv;
+		View view = null;
+		LuaObject holder = null;
 		if (convertView==null)
 		{
-			tv=new TextView(mContext);
-			L.pushJavaObject(tv);
-			mFields.push();
-			L.pushNil();
-			while(L.next(-2)!=0)
+			L.newTable();
+			holder = L.getLuaObject(-1);
+			L.pop(1);
+			try
 			{
-				String filed=L.toString(-2);
-				L.setField(-4, filed);
+				view = (View)loadlayout.call(mResource, holder, AbsListView.class);
+			}
+			catch (LuaException e)
+			{
+				return new View(mContext);
 			}
 		}
 		else
-			tv=(TextView)convertView;
-		tv.setText(mObjects[position]);
-		return tv;
+		{
+			view=convertView;
+		}
+		setHelper(view,getItem(position));
+		return view;
 	}
 	
+	private void setHelper(View view, Object value)
+	{
+		if (view instanceof TextView)
+			((TextView)view).setText(value.toString());
+		else if (view instanceof ImageView)
+		{
+			try
+			{
+				if (value instanceof Bitmap)
+					((ImageView)view).setImageBitmap((Bitmap)value);
+				else if (value instanceof String)
+					((ImageView)view).setImageBitmap(LuaBitmap.getBitmap(mContext, (String)value));
+				else if (value instanceof Drawable)
+					((ImageView)view).setImageDrawable((Drawable)value);
+				else if (value instanceof Number)
+					((ImageView)view).setImageResource(((Number)value).intValue());
+			}
+			catch (Exception e)
+			{
+				Log.d("lua",e.getMessage());
+			}
+
+		}
+	}
 	
 }

@@ -21,13 +21,15 @@ public class LuaAdapter extends BaseAdapter
 
 	private LuaObject loadlayout;
 
-	private List<? extends Map<String, ?>> mData;
+	private ArrayList<? extends Map<String, ?>> mData;
 
 	private String[] mFrom;
 
 	private String[] mField;
 
 	private String[] mTo;
+
+	private boolean mNotifyOnChange=true;
 
 	@Override
 	public int getCount()
@@ -44,10 +46,10 @@ public class LuaAdapter extends BaseAdapter
 	}
 
 	@Override
-	public long getItemId(int p1)
+	public long getItemId(int id)
 	{
 		// TODO: Implement this method
-		return 0;
+		return id;
 	}
 
 	public void add(HashMap<java.lang.String, ?> map) throws Exception
@@ -56,9 +58,47 @@ public class LuaAdapter extends BaseAdapter
 			((ArrayList<Map<String, ?>>)mData).add(map);
 		else 
 			throw new Exception("Con not add items");
+		if (mNotifyOnChange) notifyDataSetChanged();
 	}
 
+	public void insert(int idx,HashMap<java.lang.String, ?> map) throws Exception
+	{
+		if (mData instanceof ArrayList)
+			((ArrayList<Map<String, ?>>)mData).add(idx,map);
+		else 
+			throw new Exception("Con not add items");
+		if (mNotifyOnChange) notifyDataSetChanged();
+	}
+	
+	public void remove(int idx) throws Exception
+	{
+		if (mData instanceof ArrayList)
+			((ArrayList<Map<String, ?>>)mData).remove(idx);
+		else 
+			throw new Exception("Con not add items");
+		if (mNotifyOnChange) notifyDataSetChanged();
+	}
+	
+	public void clear()
+	{
+		mData.clear();
+		if (mNotifyOnChange) notifyDataSetChanged();
+	}
+	
+	public void setNotifyOnChange(boolean notifyOnChange) {
+        mNotifyOnChange = notifyOnChange;
+		if (mNotifyOnChange) notifyDataSetChanged();
+	}
+	
+	@Override
+	public View getDropDownView(int position, View convertView, ViewGroup parent)
+	{
+		// TODO: Implement this method
+		return getView(position, convertView, parent);
+	}
 
+	
+	
 	@Override
 	public View getView(int position, View convertView, ViewGroup parent)
 	{
@@ -126,7 +166,7 @@ public class LuaAdapter extends BaseAdapter
 				}
 				catch (Exception e)
 				{
-					Log.d("lua","",e);
+					Log.d("lua",e.getMessage());
 				}
 			}
 
@@ -153,7 +193,7 @@ public class LuaAdapter extends BaseAdapter
 			}
 			catch (Exception e)
 			{
-				Log.d("lua","",e);
+				Log.d("lua",e.getMessage());
 			}
 
 		}
@@ -175,7 +215,7 @@ public class LuaAdapter extends BaseAdapter
 	public LuaAdapter(Main context, java.util.List<? extends java.util.Map<java.lang.String, ?>> data, LuaObject resource) throws LuaException
 	{
 		mContext = context;
-		mData = data;
+		mData = new ArrayList<Map<String, ?>>(data);
 		mResource = resource;
 		L = context.getLuaState();
 		loadlayout = L.getLuaObject("loadlayout");
@@ -187,7 +227,7 @@ public class LuaAdapter extends BaseAdapter
 	public LuaAdapter(Main context, java.util.List<? extends java.util.Map<java.lang.String, ?>> data, LuaObject resource, java.lang.String[] from, String[] field) throws LuaException
 	{
 		mContext = context;
-		mData = data;
+		mData = new ArrayList<Map<String, ?>>(data);
 		mFrom = from;
 		mField = field;
 		mResource = resource;
@@ -201,7 +241,7 @@ public class LuaAdapter extends BaseAdapter
 	public LuaAdapter(Main context, java.util.List<? extends java.util.Map<java.lang.String, ?>> data, LuaObject resource, java.lang.String[] from, String[] to, String[] field) throws LuaException
 	{
 		mContext = context;
-		mData = data;
+		mData = new ArrayList<Map<String, ?>>(data);
 		mFrom = from;
 		mField = field;
 		mTo = to;

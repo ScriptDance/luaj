@@ -23,7 +23,7 @@ public abstract class ColorScheme
 
 	protected HashMap<Colorable, Integer> _colors = generateDefaultColors();
 
-	protected void setColor(Colorable colorable, int color)
+	public void setColor(Colorable colorable, int color)
 	{
 		_colors.put(colorable, color);
 	}
@@ -95,8 +95,8 @@ public abstract class ColorScheme
 		colors.put(Colorable.CARET_FOREGROUND, WHITE);
 		colors.put(Colorable.CARET_BACKGROUND, LIGHT_BLUE2);
 		colors.put(Colorable.CARET_DISABLED, GREY);
-		colors.put(Colorable.LINE_HIGHLIGHT, RED);
-		
+		colors.put(Colorable.LINE_HIGHLIGHT, 0x20888888);
+
 		colors.put(Colorable.NON_PRINTING_GLYPH, LIGHT_GREY);
 		colors.put(Colorable.COMMENT, OLIVE_GREEN); //  Eclipse default color
 		colors.put(Colorable.KEYWORD, DARK_BLUE); // Eclipse default color
@@ -111,17 +111,17 @@ public abstract class ColorScheme
 	private static final int BLACK = 0xFF000000;
 	private static final int BLUE = 0xFF0000FF;
 	private static final int DARK_RED = 0xFF8B0000;
-	private static final int DARK_BLUE = 0xFF20008B;
+	private static final int DARK_BLUE = 0xFFD040DD;
 	private static final int GREY = 0xFF808080;
 	private static final int LIGHT_GREY = 0xFFAAAAAA;
 	private static final int MAROON = 0xFF800000;
 	private static final int INDIGO = 0xFF2A00FF;
 	private static final int OLIVE_GREEN = 0xFF3F7F5F;
-	private static final int PURPLE = 0xFF7F0055;
-	private static final int RED = 0xFFFF0000;
+	private static final int PURPLE = 0xFFDD4488;
+	private static final int RED = 0x44FF0000;
 	private static final int WHITE = 0xFFFFFFE0;
 	private static final int PURPLE2 = 0xFFFF00FF;
 	private static final int LIGHT_BLUE = 0xFF6080FF;
-	private static final int LIGHT_BLUE2 = 0xFF40B0F0;
+	private static final int LIGHT_BLUE2 = 0xFF40B0FF;
 	private static final int GREEN = 0xFF88AA88;
 }

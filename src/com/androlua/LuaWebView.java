@@ -7,28 +7,183 @@ import android.os.*;
 import android.view.*;
 import android.webkit.*;
 import com.androlua.LuaWebView.*;
+import android.app.*;
+import android.widget.*;
+import android.graphics.drawable.*;
+import android.net.*;
+import android.util.*;
 
 public class LuaWebView extends WebView
 {
 
+	private Main mContext;
+
+	private ProgressBar mProgressbar;
+
+	private DisplayMetrics dm;
+
+
 	public LuaWebView(Main context)
 	{
 		super(context);
-
+		context.Webs.add(this);
+		mContext = context;
 		getSettings().setJavaScriptEnabled(true);
-		addJavascriptInterface(new JavaScriptinterface(context), "androlua");
-		requestFocus();
+		getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
+		addJavascriptInterface(new LuaJavaScriptinterface(context), "androlua");
+		//requestFocus();
 		setWebViewClient(new WebViewClient()
 			{
 				public boolean shouldOverrideUrlLoading(WebView view, String url)
 				{
+					if(!url.substring(0,3).equals("http"))
+						return false;
 					view.loadUrl(url);  
 					return true;
 				}
 			}
 		);
+
+		//mContext.requestWindowFeature(Window.FEATURE_PROGRESS);
+		//mContext.requestWindowFeature(1000);
+		//mContext.requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
+		//mContext.setProgressBarVisibility(true);
+		
+		//mContext.requestWindowFeature(Window.FEATURE_PROGRESS); 
+		//mContext.setProgressBarVisibility(true);
+		
+		//mContext.setSecondaryProgress(progressHorizontal.getSecondaryProgress()* 100); 
+		dm=context.getResources().getDisplayMetrics();
+		int top=(int) TypedValue.applyDimension(1,8,dm);
+		
+		mProgressbar = new ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal);
+        mProgressbar.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT, top, 0, 0));
+        addView(mProgressbar);
+		
+		setWebChromeClient(new LuaWebChromeClient());
+		setDownloadListener(new Download());
+	}
+	
+	@Override
+	protected void onScrollChanged(int l, int t, int oldl, int oldt) {
+        LayoutParams lp = (LayoutParams) mProgressbar.getLayoutParams();
+        lp.x = l;
+        lp.y = t;
+        mProgressbar.setLayoutParams(lp);
+		super.onScrollChanged(l, t, oldl, oldt);
+    }
+	
+	@Override
+	public void setDownloadListener(DownloadListener listener)
+	{
+		// TODO: Implement this method
+		super.setDownloadListener(listener);
 	}
 
+	public interface onDownloadStartListener
+	{
+		public abstract void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength)
+	}
+
+
+	class Download implements DownloadListener
+	{
+
+		private String mUrl;
+
+		private String mUserAgent;
+
+		private String mContentDisposition;
+
+		private String mMimetype;
+
+		private long mContentLength;
+		EditText file_input_field=new EditText(mContext);
+		private String mFilename;
+
+		@Override
+		public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength)
+		{
+			// TODO: Implement this method
+			mUrl = url;
+			mUserAgent = userAgent;
+			mContentDisposition = contentDisposition;
+			mMimetype = mimetype;
+			mContentLength = contentLength;
+			Uri uri=Uri.parse(mUrl);
+			mFilename = uri.getLastPathSegment();
+			if (contentDisposition != null)
+			{
+				String p="filename=\"";
+				int i=contentDisposition.indexOf(p);
+				if (i != -1)
+				{
+					i+=p.length();
+					int n=contentDisposition.indexOf('"', i);
+					if (n > i)
+						mFilename = contentDisposition.substring(i, n);
+				}
+			}
+			
+			file_input_field.setText(mFilename);
+
+			new AlertDialog.Builder(mContext)
+				.setTitle("确认下载")
+				.setMessage("url: " + url + "\nType: " + mimetype + "\nSize: " + contentLength)
+				.setView(file_input_field)
+				.setPositiveButton("Download", new DialogInterface.OnClickListener(){
+					@Override
+					public void onClick(DialogInterface p1, int p2)
+					{
+						// TODO: Implement this method
+						mFilename = file_input_field.getText().toString();
+						download(false);
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.setNeutralButton("Only Wifi", new DialogInterface.OnClickListener(){
+
+					@Override
+					public void onClick(DialogInterface p1, int p2)
+					{
+						// TODO: Implement this method
+						mFilename = file_input_field.getText().toString();
+						download(true);
+					}
+				})
+				.create()
+				.show();
+		}
+
+		private long download(boolean isWifi)
+		{
+			DownloadManager downloadManager =  (DownloadManager)mContext.getSystemService(Context.DOWNLOAD_SERVICE);
+
+			Uri uri=Uri.parse(mUrl);
+			uri.getLastPathSegment();
+			DownloadManager.Request request = new  DownloadManager.Request(uri);
+
+			request.setDestinationInExternalPublicDir("Download", mFilename);
+
+			//request.setTitle(mFilename);
+
+			request.setDescription("By Androlua+");
+
+			request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+			if (isWifi)
+				request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
+
+			//request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN);
+
+			request.setMimeType(mMimetype);
+
+			long downloadId =  downloadManager.enqueue(request);
+			return downloadId;
+		}
+	}
+
+
+	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event)
 	{       
 		if ((keyCode == KeyEvent.KEYCODE_BACK) && canGoBack())
@@ -46,6 +201,39 @@ public class LuaWebView extends WebView
 		super.setOnKeyListener(l);
 	}
 
+	@Override
+	public void addJSInterface(JsInterface object, String name)
+	{
+		// TODO: Implement this method
+		super.addJavascriptInterface(new JsObject(object), name);
+	}
+
+	@Override
+	public void addJsInterface(JsInterface object, String name)
+	{
+		// TODO: Implement this method
+		super.addJavascriptInterface(new JsObject(object), name);
+	}
+
+	class JsObject
+	{
+		private LuaWebView.JsInterface mJs;
+		public JsObject(JsInterface js)
+		{
+			mJs = js;
+		}
+		@JavascriptInterface
+		public String execute(String arg)
+		{
+			return mJs.execute(arg);
+		};
+	}
+
+	public interface JsInterface
+	{
+		@JavascriptInterface
+		public String execute(String arg);
+	}
 
 	public void setWebViewClient(LuaWebViewClient client)
 	{
@@ -53,11 +241,11 @@ public class LuaWebView extends WebView
 		super.setWebViewClient(new SimpleLuaWebViewClient(client));
 	}
 
-	public class JavaScriptinterface
+	private class LuaJavaScriptinterface
 	{
 
 		private Main mMain;
-		public JavaScriptinterface(Main  main)
+		public LuaJavaScriptinterface(Main  main)
 		{
 			mMain = main;
 		}
@@ -67,17 +255,12 @@ public class LuaWebView extends WebView
 		{
 			return mMain.runFunc(name);
 		}
+
 		@JavascriptInterface
 		public Object callLuaFunnction(String name, String arg)
 		{
 			return mMain.runFunc(name, arg);
 		}
-
-		/*@JavascriptInterface
-		 public Object callLuaFunnction(String name,double arg)
-		 {
-		 return mMain.runFunc(name,arg);
-		 }*/
 
 		@JavascriptInterface
 		public Object doLuaString(String name)
@@ -253,7 +436,7 @@ public class LuaWebView extends WebView
 
 		public void onFormResubmission(WebView view, Message dontResend,
 									   Message resend)
-		
+
 
 		public void doUpdateVisitedHistory(WebView view, String url,
 										   boolean isReload)
@@ -287,4 +470,129 @@ public class LuaWebView extends WebView
 										   String account, String args)
 
 	}
+
+	class LuaWebChromeClient extends  WebChromeClient
+	{
+		EditText prompt_input_field=new EditText(mContext);
+
+		@Override
+		public boolean onJsAlert(WebView view, String url, String message, final android.webkit.JsResult result)
+		{
+			new AlertDialog.Builder(mContext)
+				.setTitle("javaScript dialog")
+				.setMessage(message)
+				.setPositiveButton(android.R.string.ok,
+				new AlertDialog.OnClickListener()
+				{
+					public void onClick(DialogInterface dialog, int which)
+					{
+						result.confirm();
+					}
+				})
+				.setCancelable(false)
+				.create()
+				.show();
+			return true;
+		};
+		@Override
+		public boolean onJsConfirm(WebView view, String url,
+								   String message, final JsResult result)
+		{
+			AlertDialog.Builder b = new AlertDialog.Builder(mContext);
+			b.setTitle("Confirm");
+			b.setMessage(message);
+			b.setPositiveButton(android.R.string.ok,
+				new AlertDialog.OnClickListener() {
+					public void onClick(DialogInterface dialog,
+										int which)
+					{
+						result.confirm();
+					}
+				});
+			b.setNegativeButton(android.R.string.cancel,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog,
+										int which)
+					{
+						result.cancel();
+					}
+				});
+			b.setCancelable(false);
+			b.create();
+			b.show();
+			return true;
+		};
+
+		@Override
+		public boolean onJsPrompt(WebView view, String url, String message,
+								  String defaultValue, final JsPromptResult result)
+		{
+			prompt_input_field.setText(defaultValue);
+			AlertDialog.Builder b = new AlertDialog.Builder(mContext);
+			b.setTitle("Prompt");
+			b.setMessage(message);
+			b.setView(prompt_input_field);
+			b.setPositiveButton(android.R.string.ok,
+				new AlertDialog.OnClickListener() {
+					public void onClick(DialogInterface dialog,
+										int which)
+					{
+						String value = prompt_input_field
+							.getText().toString();
+						result.confirm(value);
+					}
+				});
+			b.setNegativeButton(android.R.string.cancel,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog,
+										int which)
+					{
+						result.cancel();
+					}
+				});
+			b.setOnCancelListener(new DialogInterface.OnCancelListener() {
+					public void onCancel(DialogInterface dialog)
+					{
+						result.cancel();
+					}
+				});
+			b.show();
+			return true;
+		};
+		
+		@Override
+		public void onProgressChanged(WebView view, int newProgress)
+		{
+			//mContext.setProgressBarVisibility(true);
+			//mContext.setProgress(newProgress * 100);
+			//mContext.setSecondaryProgress(newProgress * 100);
+			if(newProgress==100)
+			{
+				mProgressbar.setVisibility(View.GONE);
+			}
+			else
+			{
+				mProgressbar.setVisibility(View.VISIBLE);
+				mProgressbar.setProgress(newProgress);
+			}
+			super.onProgressChanged(view, newProgress);
+		}
+		
+		@Override
+		public void onReceivedTitle(WebView view, String title)
+		{
+			//mContext.setTitle(title);
+			super.onReceivedTitle(view, title);
+		}
+
+		@Override
+		public void onReceivedIcon(WebView view, Bitmap icon)
+		{
+			// TODO: Implement this method
+			//mContext.setIcon(new BitmapDrawable(icon));
+			super.onReceivedIcon(view, icon);
+		}
+
+	}
+
 }

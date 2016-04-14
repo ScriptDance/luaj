@@ -20,7 +20,7 @@ public class ColorSchemeDark extends ColorScheme {
 		//setColor(Colorable.CARET_FOREGROUND, OFF_BLACK);
 		//setColor(Colorable.CARET_BACKGROUND, FLUORESCENT_YELLOW);
 		//setColor(Colorable.CARET_DISABLED, LIGHT_GREY);
-		setColor(Colorable.LINE_HIGHLIGHT, 0xFf00FF00);
+		//setColor(Colorable.LINE_HIGHLIGHT, 0xFf00FF00);
 		setColor(Colorable.NON_PRINTING_GLYPH, DARK_GREY);
 		//setColor(Colorable.COMMENT, JUNGLE_GREEN);
 		//setColor(Colorable.KEYWORD, MARINE);

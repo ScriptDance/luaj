@@ -220,12 +220,12 @@ public final class LuaJavaAPI
 			}
 			catch (NoSuchFieldException e)
 			{
-				try
-				{
-					field = objClass.getDeclaredField(fieldName);
-				}
-				catch (Exception e2)
-				{
+				/*try
+				 {
+				 field = objClass.getDeclaredField(fieldName);
+				 }
+				 catch (Exception e2)
+				 */{
 					return 0;
 				}
 			}
@@ -234,13 +234,17 @@ public final class LuaJavaAPI
 				return 0;
 			if (isClass && !Modifier.isStatic(field.getModifiers()))
 				return 0;
-
+			Class type = field.getType();
 			try
 			{
 				if (!Modifier.isPublic(field.getModifiers()))
 					field.setAccessible(true);
-				Class type = field.getType();
+
 				field.set(obj, compareTypes(L, type, 3));
+			}
+			catch (LuaException e)
+			{
+				argError(L, fieldName, 3, type);
 			}
 			catch (Exception e)
 			{
@@ -249,6 +253,40 @@ public final class LuaJavaAPI
 
 			return 1;
 		}
+	}
+
+	private static String argError(LuaState L, String name, int idx, Class type) throws LuaException
+	{
+
+		throw new LuaException("bad argument to '" + name + "' (" + type.getName() + " expected, got " + typeName(L, 3) + " value)");
+
+	}
+
+	private static String typeName(LuaState L, int idx) throws LuaException
+	{
+		if (L.isObject(idx))
+		{
+			return L.getObjectFromUserdata(idx).getClass().getName();
+		}
+		switch (L.type(idx))
+		{
+			case LuaState.LUA_TSTRING:
+				return "string";
+			case LuaState.LUA_TNUMBER:
+				return "number";
+			case LuaState.LUA_TBOOLEAN:
+				return "boolean";
+			case LuaState.LUA_TFUNCTION:
+				return "function";
+			case LuaState.LUA_TTABLE:
+				return "table";
+			case LuaState.LUA_TTHREAD:
+				return "thread";
+			case LuaState.LUA_TLIGHTUSERDATA:
+			case LuaState.LUA_TUSERDATA:
+				return "userdata";
+		}
+		return "unkown";
 	}
 
 	/**
@@ -265,19 +303,31 @@ public final class LuaJavaAPI
 
 		synchronized (L)
 		{
-			Class type = obj.getClass().getComponentType();
-			if (type == null)
-				throw new LuaException(obj.toString() + " is not a array");
-			try
+			if (obj.getClass().isArray())
 			{
-				Object value = compareTypes(L, type, 3);
-				Array.set(obj, index, value);
+				Class<?> type = obj.getClass().getComponentType();
+				try
+				{
+					Object value = compareTypes(L, type, 3);
+					Array.set(obj, index, value);
+				}
+				catch (LuaException e)
+				{
+					argError(L, obj.getClass().getName() + " [" + index + "]", 3, type);
+				}
 			}
-			catch (Exception e)
+			else if (obj instanceof List)
 			{
-				throw new LuaException("can not set array value: " + e.getMessage());
+				((List<Object>)obj).set(index, L.toJavaObject(3));
 			}
-
+			else if (obj instanceof Map)
+			{
+				((Map<Integer,Object>)obj).put(index, L.toJavaObject(3));
+			}
+			else
+			{
+				throw new LuaException("can not set " + obj.getClass().getName() + " value: " + L.toJavaObject(3) + " in " + index);
+			}
 			return 0;
 		}
 	}
@@ -288,20 +338,28 @@ public final class LuaJavaAPI
 
 		synchronized (L)
 		{
-
-			try
+			Object ret=null;
+			if (obj.getClass().isArray())
 			{
-				Object ret=Array.get(obj, index);
-				L.pushObjectValue(ret);
-				return 1;
+				ret = Array.get(obj, index);
 			}
-			catch (Exception e)
+			else if (obj instanceof List)
 			{
-				throw new LuaException("can not get array value: " + e.getMessage());
+				ret = ((List)obj).get(index);
 			}
-
+			else if (obj instanceof Map)
+			{
+				ret = ((Map)obj).get(index);
+			}
+			else
+			{
+				throw new LuaException("can not get " + obj.getClass().getName() + " value in " + index);
+			}
+			L.pushObjectValue(ret);
+			return 1;
 		}
 	}
+
 	public static int asTable(int luaState, Object obj) throws LuaException
 	{
 		LuaState L = LuaStateFactory.getExistingState(luaState);
@@ -379,6 +437,29 @@ public final class LuaJavaAPI
 		}
 	}
 
+	public static int newArray(int luaState, Class<?> clazz) throws LuaException
+	{
+		LuaState L = LuaStateFactory.getExistingState(luaState);
+		synchronized (L)
+		{
+			try
+			{
+				int top=L.getTop();
+				int[] dimensions=new int[top - 1];
+				for (int i=0;i < top - 1;i++)
+				{
+					dimensions[i] = (int) L.toInteger(i + 2);
+				}
+				Object obj = Array.newInstance(clazz, dimensions);
+				L.pushJavaObject(obj);
+			}
+			catch (Exception e)
+			{
+				throw new LuaException("can not create a array: " + e.getMessage());
+			}
+			return 1;
+		}
+	}
 
 	public static Class javaBindClass(String className) throws LuaException
 	{
@@ -461,7 +542,7 @@ public final class LuaJavaAPI
 		}
 	}
 
-	public static int javaCreate(int luaState, Class clazz) throws LuaException
+	public static int javaCreate(int luaState, Class<?> clazz) throws LuaException
 	{
 		LuaState L = LuaStateFactory.getExistingState(luaState);
 
@@ -471,7 +552,11 @@ public final class LuaJavaAPI
 			{
 				return createProxyObject(L, clazz);
 			}
-			else if (clazz.getSuperclass() == AbstractMap.class || clazz.getSuperclass() == HashMap.class)
+			else if (List.class.isAssignableFrom(clazz))
+			{
+				return createList(L,clazz);
+			}
+			else if (Map.class.isAssignableFrom(clazz))
 			{
 				return createMap(L, clazz);
 			}
@@ -572,7 +657,19 @@ public final class LuaJavaAPI
 		}
 	}
 
-	public static int javaArrayLength(int luaState, Object obj) throws LuaException
+	public static int javaEquals(int luaState, Object obj, Object obj2) throws LuaException
+	{
+		LuaState L = LuaStateFactory.getExistingState(luaState);
+
+		synchronized (L)
+		{
+			boolean eq=obj.equals(obj2);
+			L.pushBoolean(eq);
+			return 1;
+		}
+	}
+
+	public static int javaObjectLength(int luaState, Object obj) throws LuaException
 	{
 		LuaState L = LuaStateFactory.getExistingState(luaState);
 
@@ -602,11 +699,35 @@ public final class LuaJavaAPI
 	}
 
 
-	private static int getObjInstance(LuaState L, Class clazz) throws LuaException
+	private static int getObjInstance(LuaState L, Class<?> clazz) throws LuaException
 	{
 		synchronized (L)
 		{
 			int top = L.getTop();
+			if (top == 1)
+			{
+				try
+				{
+					Object ret=clazz.newInstance();
+					L.pushJavaObject(ret);
+					return 1;
+				}
+				catch (Exception e)
+				{
+					if (android.view.View.class.isAssignableFrom(clazz))
+					{
+						try
+						{
+							Constructor ctr = clazz.getConstructor(new Class[]{android.content.Context.class});
+							Object ret=ctr.newInstance(new Object[]{L.getContext()});
+							L.pushJavaObject(ret);
+							return 1;
+						}
+						catch (Exception e2)
+						{}
+					}
+				}
+			}
 			Object[] objs = new Object[top - 1];
 
 			Constructor[] constructors = clazz.getConstructors();
@@ -886,7 +1007,10 @@ public final class LuaJavaAPI
 				throw new LuaException(e);
 			}
 
-			L.pushObjectValue(ret);
+			if (ret instanceof CharSequence)
+				L.pushString(ret.toString());
+			else
+				L.pushObjectValue(ret);
 			return 1;
 		}
 	}
@@ -1066,7 +1190,7 @@ public final class LuaJavaAPI
 	}
 
 
-	private static Object createArray(LuaState L, Class type, int idx) throws LuaException
+	private static Object createArray(LuaState L, Class<?> type, int idx) throws LuaException
 	{
 		synchronized (L)
 		{
@@ -1174,7 +1298,44 @@ public final class LuaJavaAPI
 		}
 	}
 
-	private static int createMap(LuaState L, Class clazz) throws LuaException
+	private static int createList(LuaState L, Class<?> type) throws LuaException
+	{
+		synchronized (L)
+		{
+			L.pushJavaObject(createList(L, type, 2));
+			return 1;
+		}
+	}
+
+
+	private static Object createList(LuaState L, Class<?> type, int idx) throws LuaException
+	{
+		synchronized (L)
+		{
+			int n = L.objLen(idx);
+			try
+			{
+				if (type.equals(List.class))
+					type = ArrayList.class;
+				List<Object> list =(List<Object>) type.newInstance();
+				for (int i = 1;i <= n;i++)
+				{
+					L.pushNumber(i);
+					L.getTable(idx);
+					list.add(L.toJavaObject(-1));
+					L.pop(1);
+				}
+				return list;
+			}
+			catch (Exception e)
+			{
+				throw new LuaException(e);
+			}
+		}
+	}
+
+
+	private static int createMap(LuaState L, Class<?> clazz) throws LuaException
 	{
 		// TODO: Implement this method
 		synchronized (L)
@@ -1184,13 +1345,15 @@ public final class LuaJavaAPI
 		}
 	}
 
-	private static Object createMap(LuaState L, Class clazz, int idx) throws LuaException
+	private static Object createMap(LuaState L, Class<?> clazz, int idx) throws LuaException
 	{
 		// TODO: Implement this method
 		synchronized (L)
 		{
 			try
 			{
+				if (clazz.equals(Map.class))
+					clazz = HashMap.class;
 				Map<Object,Object> map = (Map<Object, Object>) clazz.newInstance();
 				L.pushNil();
 				while (L.next(idx) != 0)
@@ -1208,7 +1371,7 @@ public final class LuaJavaAPI
 	}
 
 
-	private static Object compareTypes(LuaState L, Class parameter, int idx)
+	private static Object compareTypes(LuaState L, Class<?> parameter, int idx)
 	throws LuaException
 	{
 		boolean okType = true;
@@ -1270,7 +1433,7 @@ public final class LuaJavaAPI
 					{
 						obj = createProxyObject(L, parameter, idx);
 					}
-					else if (parameter.getSuperclass() == AbstractMap.class || parameter.getSuperclass() == HashMap.class)
+					else if (Map.class.isAssignableFrom(parameter))
 					{
 						obj = createMap(L, parameter, idx);
 					}
@@ -1303,7 +1466,11 @@ public final class LuaJavaAPI
 					if (L.isObject(idx))
 					{
 						Object userObj = L.getObjectFromUserdata(idx);
-						if (!parameter.isAssignableFrom(userObj.getClass()))
+						if (parameter.isPrimitive() && Number.class.isAssignableFrom(userObj.getClass()))
+						{
+							obj = userObj;
+						}
+						else if (!parameter.isAssignableFrom(userObj.getClass()))
 						{
 							okType = false;
 						}
@@ -1347,11 +1514,11 @@ public final class LuaJavaAPI
 	private static int toPrimitive(LuaState L, Class type, int idx) throws LuaException
 	{
 		Object obj=null;
-		
+
 		if (type == char.class && L.isString(idx))
 		{
 			String s = L.toString(idx);
-			if(s.length()==1)
+			if (s.length() == 1)
 				obj = s.charAt(0);
 			else
 				obj = s.toCharArray();

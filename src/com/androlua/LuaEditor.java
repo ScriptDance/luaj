@@ -1,15 +1,15 @@
 package com.androlua;
-import com.myopicmobile.textwarrior.android.*;
 import android.content.*;
-import com.myopicmobile.textwarrior.common.*;
-import java.io.*;
-import android.util.*;
+import android.content.res.*;
 import android.graphics.*;
+import android.util.*;
 import android.view.*;
-import android.view.ActionMode.*;
 import android.widget.*;
 import android.widget.RadioGroup.*;
 import android.widget.TextView.*;
+import com.myopicmobile.textwarrior.android.*;
+import com.myopicmobile.textwarrior.common.*;
+import java.io.*;
 
 public class LuaEditor extends FreeScrollingTextField implements View.OnClickListener
 {
@@ -51,14 +51,70 @@ public class LuaEditor extends FreeScrollingTextField implements View.OnClickLis
 		setAutoIndentWidth(2);
 		Lexer.setLanguage(LanguageLua.getInstance());
 		setNavigationMethod(new YoyoNavigationMethod(this));
+		TypedArray array = mContext.getTheme().obtainStyledAttributes(new int[] {  
+																 android.R.attr.colorBackground, 
+																 android.R.attr.textColorPrimary, 
+															 }); 
+		int backgroundColor = array.getColor(0, 0xFF00FF); 
+		int textColor = array.getColor(1, 0xFF00FF); 
+		array.recycle();
+		setTextColor(textColor);
 		//init();
+		//setDark(true);
 	}
 
+	public void setDark(boolean isDark)
+	{
+		if(isDark)
+			setColorScheme(new ColorSchemeDark());
+		else
+			setColorScheme(new ColorSchemeLight());
+	}
+	
+	
+	public void setKeywordColor(int color)
+	{
+		getColorScheme().setColor(ColorScheme.Colorable.KEYWORD,color);
+	}
+	
+	public void setUserwordColor(int color)
+	{
+		getColorScheme().setColor(ColorScheme.Colorable.LITERAL,color);
+	}
+	
+	public void setBasewordColor(int color)
+	{
+		getColorScheme().setColor(ColorScheme.Colorable.NAME,color);
+	}
+	
+	public void setStringColor(int color)
+	{
+		getColorScheme().setColor(ColorScheme.Colorable.STRING,color);
+	}
+	
+	public void setCommentColor(int color)
+	{
+		getColorScheme().setColor(ColorScheme.Colorable.COMMENT,color);
+	}
+	
+	public void setBackgoudColor(int color)
+	{
+		getColorScheme().setColor(ColorScheme.Colorable.BACKGROUND,color);
+	}
+	
+	public void setTextColor(int color)
+	{
+		getColorScheme().setColor(ColorScheme.Colorable.FOREGROUND,color);
+	}
+	
+	
 	@Override
 	public void onClick(View p1)
 	{
 		// TODO: Implement this method
+		//p1.setBackgroundColor(Color.argb(255, 0x88, 0x88, 0x88));
 		paste(((TextView)p1).getText().toString());
+		//p1.setBackgroundColor(Color.WHITE);
 	}
 	
 	private void init(){
@@ -82,6 +138,7 @@ public class LuaEditor extends FreeScrollingTextField implements View.OnClickLis
 			tv.setText(s);
 			tv.setPadding(40, 0, 40, 0);
 			tv.setBackgroundColor(Color.WHITE);
+			//tv.setBackgroundResource(android.R.drawable.bottom_bar);
 			tv.setOnClickListener(this);
 			tv.setTextSize(0,(int)(tv.getTextSize()*1.6));
 			//tv.setPadding(-40,-40,-40,-40);
@@ -95,13 +152,18 @@ public class LuaEditor extends FreeScrollingTextField implements View.OnClickLis
 		height = layout.getMeasuredHeight();
 	}
 
+	
+	
 	@Override
 	protected void onLayout2(boolean changed, int left, int top, int right, int bottom)
 	{
 		// TODO: Implement this method
 		super.onLayout(changed, left, top, right, bottom);
 		if(changed)
+		{
+			panel.dismiss();
 			panel.showAsDropDown(this,0,-height);
+	}
 	}
 
 	@Override

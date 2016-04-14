@@ -13,7 +13,7 @@
 		android:layout_height="match_parent"
 		android:src="@drawable/welcome"
 		android:layout_weight="1.0"
-		android:scaleType="fitCenter"/>
+		android:scaleType="fitXY"/>
 
 </LinearLayout>
 

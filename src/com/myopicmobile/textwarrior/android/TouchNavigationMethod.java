@@ -44,6 +44,8 @@ public class TouchNavigationMethod extends GestureDetector.SimpleOnGestureListen
 
 	private float lastSize;
 
+	private int fling;
+	
 	public TouchNavigationMethod(FreeScrollingTextField textField)
 	{
 		_textField = textField;
@@ -103,6 +105,7 @@ public class TouchNavigationMethod extends GestureDetector.SimpleOnGestureListen
 		_textField.stopAutoScrollCaret();
 		_isCaretTouched = false;
 		lastDist=0;
+		fling=0;
 		return true;
 	}
 
@@ -112,13 +115,23 @@ public class TouchNavigationMethod extends GestureDetector.SimpleOnGestureListen
 	{
 		
 		//onTouchZoon(e2);
-		
+			
 		if (_isCaretTouched)
 		{
 			dragCaret(e2);
 		}
 		else if (e2.getPointerCount() == 1)
 		{
+			if(fling==0)
+				if(Math.abs(distanceX)>Math.abs(distanceY))
+					fling=1;
+				else
+					fling=-1;
+			if(fling==1)
+				distanceY=0;
+			else if(fling==-1)
+				distanceX=0;
+			
 			scrollView(distanceX, distanceY);
 		}
 
@@ -259,7 +272,7 @@ public class TouchNavigationMethod extends GestureDetector.SimpleOnGestureListen
 		int y = screenToViewY((int) e.getY());
 		int charOffset = _textField.coordToCharIndex(x, y);
 
-		if (_textField.isSelectText())
+		/*if (_textField.isSelectText())
 		{
 			if (_textField.inSelectionRange(charOffset))
 			{
@@ -276,7 +289,7 @@ public class TouchNavigationMethod extends GestureDetector.SimpleOnGestureListen
 				_isCaretTouched = false;
 			}
 		}
-		else
+		else*/
 		{
 			if (charOffset >= 0)
 			{

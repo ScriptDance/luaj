@@ -20,6 +20,11 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#define LOG_TAG "lua"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#endif
 
 static int luaB_print (lua_State *L) {
   int n = lua_gettop(L);  /* number of arguments */
@@ -36,6 +41,9 @@ static int luaB_print (lua_State *L) {
       return luaL_error(L, "'tostring' must return a string to 'print'");
     if (i>1) lua_writestring("\t", 1);
     lua_writestring(s, l);
+#ifdef __ANDROID__
+	LOGD("%s", l);
+#endif
     lua_pop(L, 1);  /* pop result */
   }
   lua_writeline();
@@ -499,8 +507,8 @@ static int findtable (lua_State *L) {
   }
   luaL_checktype(L, 1, LUA_TTABLE);
   const char *name = luaL_checklstring(L, 2, 0);
-  luaL_findtable(L, 1, name, 0);
-  return 1;
+  lua_pushstring(L, luaL_findtable(L, 1, name, 0));
+  return 2;
 }
 #endif
 

@@ -283,11 +283,42 @@ int l_tcc_call(lua_State * L)
 
 }
 
+static void
+tcc_meta(lua_State *L) {
+	if (luaL_newmetatable(L, "TCCState")) {
+		luaL_Reg l[] = {
+	{"delete", l_tcc_delete},
+	{"set_lib_path", l_tcc_set_lib_path},
+	{"set_options", l_tcc_set_options},
+	{"add_include_path", l_tcc_add_include_path},
+	{"add_sysinclude_path", l_tcc_add_sysinclude_path},
+	{"define_symbol", l_tcc_define_symbol},
+	{"undefine_symbol", l_tcc_undefine_symbol},
+	{"add_file", l_tcc_add_file},
+	{"compile_string", l_tcc_compile_string},
+	{"set_output_type", l_tcc_set_output_type},
+	{"add_library_path", l_tcc_add_library_path},
+	{"add_library", l_tcc_add_library},
+	{"output_file", l_tcc_output_file},
+	{"run", l_tcc_run},
+	{"get_symbol", l_tcc_get_symbol},
+	{"get_function", l_tcc_get_function},
+    {"call", l_tcc_call},
+			{ NULL, NULL },
+		};
+		luaL_newlib(L,l);
+		lua_setfield(L, -2, "__index");
+	}
+	lua_setmetatable(L, -2);
+}
+
+
 int pushtccstate(lua_State * L, TCCState* p)
 {
 	TCCState **userData;
 	userData = (TCCState **) lua_newuserdata(L, sizeof(p));
 	*userData = p;
+	tcc_meta(L);
 	return 1;
 }
 

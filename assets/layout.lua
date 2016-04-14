@@ -1,6 +1,5 @@
 layout={
   main={
-
     LuaEditor,
     id="editor",
     text= "",
@@ -11,68 +10,9 @@ layout={
 
   },
 
-  create={
-    LinearLayout ,
-    layout_width="fill",
-    orientation=1,
-    {
-      TextView,
-      id="create_t",
-      text=dir,
-      layout_width="fill",
-      paddingLeft=20,
-    },
-    {
-      EditText,
-      id="create_e",
-      layout_width="fill",
-      paddingLeft=20,
-    },
-    {
-      Button,
-      text="确定",
-      layout_width="fill",
-      onClick="create"
-    },
-  },
-
-  help={
-    ScrollView,
-    {
-      LinearLayout,
-      layout_width="fill",
-      orientation=1,
-      paddingLeft=20,
-      {
-        TextView,
-        autoLinkMask=1,
-        movementMethod=LinkMovementMethod.getInstance(),
-        linkTextColor="#0000ff",
-        layout_width="fill",
-        text=about,
-        textIsSelectable=true
-      },
-      {
-        TextView,
-        autoLinkMask=1,
-        movementMethod=LinkMovementMethod.getInstance(),
-        linkTextColor="#0000ff",
-        layout_width="fill",
-        text=help1,
-        textIsSelectable=true
-      },
-      {
-        TextView,
-        linkTextColor="#0000ff",
-        layout_width="fill",
-        text=help2,
-        textIsSelectable=true
-      },
-    }
-  },
-
   build={
     ScrollView ,
+    layout_width="fill",
     {
       LinearLayout,
       orientation=1,
@@ -133,16 +73,12 @@ layout={
         text="打包使用debug签名",
         id="status"
       },
-      {
-        Button,
-        text="确定",
-        layout_width="fill",
-        onClick="buildfile"
-      },
     }
   },
+
   project={
     ScrollView ,
+    layout_width="fill",
     {
       LinearLayout,
       orientation=1,
@@ -169,12 +105,6 @@ layout={
         text="com.androlua.demo",
         layout_width="fill",
         singleLine=true,
-      },
-      {
-        Button,
-        text="确定",
-        layout_width="fill",
-        onClick="create_project"
       },
     }
   }

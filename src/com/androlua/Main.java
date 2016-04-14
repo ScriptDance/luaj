@@ -5,6 +5,7 @@ import android.content.*;
 import android.content.pm.*;
 import android.content.res.*;
 import android.graphics.*;
+import android.graphics.drawable.*;
 import android.net.*;
 import android.os.*;
 import android.util.*;
@@ -15,11 +16,9 @@ import com.luajava.*;
 import dalvik.system.*;
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.*;
-import java.util.regex.*;
 import java.util.zip.*;
 
-public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveListerer
+public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveListerer,LuaContext
 {
 
 	private LuaState L;
@@ -51,10 +50,7 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 
 	private ArrayList<LuaThread> threadList=new ArrayList<LuaThread>();
 
-	private ExecutorService mThreadPool;
-
 	public String luaCpath;
-	private boolean mInAsset=false;
 
 	private String extDir;
 
@@ -66,45 +62,28 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 
 	private LuaBroadcastReceiver mReceiver;
 
-	public String getLuaExtDir()
-	{
-		return luaExtDir;
-	}
-	
-	public String getLuaExtDir(String name)
-	{
-		File dir=new File(luaExtDir + "/" + name);
-		if(!dir.exists())
-			if(!dir.mkdirs())
-				return null;
-		return dir.getAbsolutePath();
-	}
-	
-	public String getLuaDir()
-	{
-		return luaDir;
-	}
+	private String luaLpath;
 
-	public String getLuaDir(String name)
-	{
-		File dir=new File(luaDir + "/" + name);
-		if(!dir.exists())
-			if(!dir.mkdirs())
-				return null;
-		return dir.getAbsolutePath();
-	}
-	
+	public ArrayList<LuaWebView> Webs= new ArrayList<LuaWebView>();
+
+	private String luaMdDir;
+
+	private boolean isUpdata;
+
+	private ToolBar mToolBar;
+
 	@Override
 	public void onCreate(Bundle savedInstanceState)
-	{//startForeground(1, new Notification()); 
+	{
 		setTheme(android.R.style.Theme_Holo_Light_NoActionBar);
 		//s=android.R.style.Theme_Holo_Wallpaper_NoTitleBar;
 		//设置主题
 //		Intent intent=getIntent();
 //		int theme=intent.getIntExtra("theme", android.R.style.Theme_Holo_Light_NoActionBar);
 //		setTheme(theme);
-
-
+		
+		StrictMode.ThreadPolicy policy=new StrictMode.ThreadPolicy.Builder().permitAll().build();
+		StrictMode.setThreadPolicy(policy);
 		//设置print界面
 		super.onCreate(savedInstanceState);
 		layout = new LinearLayout(this);
@@ -139,7 +118,7 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		}
 		FragmentManager fm=getFragmentManager();
 		FragmentTransaction ft=fm.beginTransaction();
-		ft.add(1,new Fragment());
+		ft.add(1, new Fragment());
 		File destDir = new File(luaExtDir);
 		if (!destDir.exists())
 			destDir.mkdirs();
@@ -148,8 +127,10 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		extDir = getFilesDir().getAbsolutePath();
 		odexDir = getDir("odex", Context.MODE_PRIVATE).getAbsolutePath();
 		libDir = getDir("lib", Context.MODE_PRIVATE).getAbsolutePath();
+		luaMdDir = getDir("lua", Context.MODE_PRIVATE).getAbsolutePath();
 		luaCpath = getApplicationInfo().nativeLibraryDir + "/lib?.so" + ";" + libDir + "/lib?.so";
-
+		luaDir = extDir;
+		luaLpath = luaMdDir + "/?.lua;" + luaMdDir + "/lua/?.lua;" + luaMdDir + "/?/init.lua;";
 
 		handler = new MainHandler();
 
@@ -165,41 +146,31 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 			if (uri != null)
 			{
 				path = uri.getPath();
-				if (path.indexOf("/android_asset") == 0)
-				{
-					initLua();
-					path = path.substring("/android_asset/".length(), path.length());
-					mInAsset = true;
-				}
-				else
+				if (path.lastIndexOf("lua") == path.length() - 3 || path.lastIndexOf("luac") == path.length() - 4)
 				{
 					luaPath = path;
 					luaDir = luaPath.substring(0, luaPath.lastIndexOf("/"));
 				}
+				else
+				{
+					path = extDir + "/main.lua";
+					luaPath = path;
+					luaDir = extDir;
+				}
 			}
-			else
+			if (path == null)
 			{
 				path = extDir + "/main.lua";
 				luaPath = path;
 				luaDir = extDir;
 			}
+
+			luaLpath = (luaDir + "/?.lua;" + luaDir + "/lua/?.lua;" + luaDir + "/?/init.lua;") + luaLpath;
+
 			initLua();
 			checkInfo();
 
-			if (mInAsset && path != null)
-			{
-				doAsset(path, arg);
-			}
-			else if (path != null)
-			{
-				doFile(path, arg);
-			}
-			else
-			{
-				mInAsset = true;
-				doAsset("main", arg);
-			}
-
+			doFile(path, arg);
 
 			isCreate = true;
 			runFunc("onCreate", savedInstanceState);
@@ -226,6 +197,68 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		if (mOnTouchEvent.isNil())
 			mOnTouchEvent = null;
 
+	}
+	@Override
+	public String getLuaLpath()
+	{
+		// TODO: Implement this method
+		return luaLpath;
+	}
+
+	@Override
+	public String getLuaCpath()
+	{
+		// TODO: Implement this method
+		return luaCpath;
+	}
+
+	@Override
+	public Context getContext()
+	{
+		// TODO: Implement this method
+		return this;
+	}
+
+	@Override
+	public LuaState getLuaState()
+	{
+		return L;
+	}
+
+	@Override
+	public String getLuaExtDir()
+	{
+		return luaExtDir;
+		
+	}
+
+	public View getDecorView()
+	{
+		return getWindow().getDecorView();
+	}
+	
+	public String getLuaExtDir(String name)
+	{
+		File dir=new File(luaExtDir + "/" + name);
+		if (!dir.exists())
+			if (!dir.mkdirs())
+				return null;
+		return dir.getAbsolutePath();
+	}
+
+	@Override
+	public String getLuaDir()
+	{
+		return luaDir;
+	}
+
+	public String getLuaDir(String name)
+	{
+		File dir=new File(luaDir + "/" + name);
+		if (!dir.exists())
+			if (!dir.mkdirs())
+				return null;
+		return dir.getAbsolutePath();
 	}
 
 	public void checkInfo()
@@ -269,9 +302,15 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 
 	private void onUpdata(long lastTime, long oldLastTime)
 	{
+		isUpdata = true;
 		try
 		{
-			unApk("assets");
+			LuaUtil.rmDir(new File(extDir),".lua");
+			LuaUtil.rmDir(new File(luaMdDir),".lua");
+			
+			unApk("assets", extDir);
+			unApk("lua", luaMdDir);
+			unZipAssets("main.alp", extDir);
 		}
 		catch (IOException e)
 		{
@@ -279,7 +318,7 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		}
 	}
 
-	private void unApk(String dir) throws IOException
+	private void unApk(String dir, String extDir) throws IOException
 	{
 		int i=dir.length() + 1;
 		ZipFile zip=new ZipFile(getApplicationInfo().publicSourceDir);
@@ -307,7 +346,7 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
                         throw new RuntimeException("create file " + temp.getName() + " fail");
                     }
                 }
-				
+
 				FileOutputStream out=new FileOutputStream(extDir + File.separator + path);
 				InputStream in=zip.getInputStream(entry);
 				byte[] buf=new byte[4096];
@@ -321,47 +360,6 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 			}
 		}
 		zip.close();
-	}
-
-
-	private boolean unAssets(String dir) throws IOException
-	{
-		// TODO: Implement this method
-		AssetManager am=getAssets();
-
-		String[] list=am.list(dir);
-		if (list.length == 0)
-			return false;
-
-		File d=new File(extDir + "/" + dir);
-		if (!d.exists())
-			d.mkdirs();
-
-		for (String name:list)
-		{
-			String path;
-			if (dir.length() == 0)
-			{
-				path = name;
-				if (path.equals("images") || path.equals("sounds") || path.equals("webkit"))
-					continue;
-			}
-			else
-				path = dir + "/" + name;
-			//images、sounds、webkit
-			if (unAssets(path))
-				continue;
-			if (name.lastIndexOf(".so") > 1)
-			{
-				assetsToSD(path, libDir + "/" + path);
-			}
-			else
-			{
-				assetsToSD(path, extDir + "/" + path);
-			}
-
-		}
-		return true;
 	}
 
 
@@ -383,7 +381,16 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		}  
 		InputStream inputStream = null;  
 		//打开压缩文件  
-		inputStream = this.getAssets().open(assetName);  
+		try
+		{
+			inputStream = this.getAssets().open(assetName);
+		}
+		catch (IOException e)
+		{
+			return;
+		}
+
+
 		ZipInputStream zipInputStream = new ZipInputStream(inputStream);  
 		//读取一个进入点  
 		ZipEntry zipEntry = zipInputStream.getNextEntry();  
@@ -422,24 +429,18 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		zipInputStream.close();  
 	}  
 
-
-	public boolean isInAsset()
+	public DexClassLoader loadDex(String path) throws LuaException
 	{
-		return mInAsset;
-	}
-
-	public LuaState getLuaState()
-	{
-		return L;
-	}
-
-	public DexClassLoader loadDex(String path)
-	{
-		if(path.charAt(0)!='/')
-		if (isInAsset())
-			path = extDir + "/" + path;
-		else
+		if (path.charAt(0) != '/')
 			path = luaDir + "/" + path;
+		if (!new File(path).exists())
+			if (new File(path + ".dex").exists())
+				path += ".dex";
+			else
+			if (new File(path + ".jar").exists())
+				path += ".jar";
+			else
+				throw new LuaException(path + " not found");
 		return new DexClassLoader(path, odexDir, getApplicationInfo().nativeLibraryDir, getClassLoader());
 	}
 
@@ -452,40 +453,15 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		File f=new File(libDir + "/lib" + fn + ".so");
 		if (!f.exists())
 		{
-			f=new File(luaDir + "/lib" + fn+".so");
+			f = new File(luaDir + "/lib" + fn + ".so");
 			if (!f.exists())
-				throw new LuaException("can not find lib "+name);
-			copyFile(luaDir + "/lib" + fn+".so",libDir + "/lib" + fn+".so");
+				throw new LuaException("can not find lib " + name);
+			LuaUtil.copyFile(luaDir + "/lib" + fn + ".so", libDir + "/lib" + fn + ".so");
 		}
 		LuaObject require=L.getLuaObject("require");
 		return require.call(name);
 	}
 
-	private void copyFile(String oldPath, String newPath) { 
-		try { 
-			int bytesum = 0; 
-			int byteread = 0; 
-			File oldfile = new File(oldPath); 
-			if (oldfile.exists()) { //文件存在时 
-				InputStream inStream = new FileInputStream(oldPath); //读入原文件 
-				FileOutputStream fs = new FileOutputStream(newPath); 
-				byte[] buffer = new byte[4096]; 
-				int length; 
-				while ( (byteread = inStream.read(buffer)) != -1) { 
-					bytesum += byteread; //字节数 文件大小 
-					System.out.println(bytesum); 
-					fs.write(buffer, 0, byteread); 
-				} 
-				inStream.close(); 
-			} 
-		} 
-		catch (Exception e) { 
-			System.out.println("复制文件操作出错"); 
-			e.printStackTrace(); 
-
-		} 
-
-	} 
 	
 	public Intent registerReceiver(LuaBroadcastReceiver receiver, IntentFilter filter)
 	{
@@ -499,23 +475,46 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		LuaBroadcastReceiver receiver=new LuaBroadcastReceiver(ltr);
 		return super.registerReceiver(receiver, filter);
 	}
-	
+
 	public Intent registerReceiver(IntentFilter filter)
 	{
 		// TODO: Implement this method
-		if(mReceiver!=null)
+		if (mReceiver != null)
 			unregisterReceiver(mReceiver);
-		mReceiver=new LuaBroadcastReceiver(this);
+		mReceiver = new LuaBroadcastReceiver(this);
 		return super.registerReceiver(mReceiver, filter);
 	}
-	
+
 	@Override
 	public void onReceive(Context context, Intent intent)
 	{
 		// TODO: Implement this method
-		runFunc("onReceive",context,intent);
+		runFunc("onReceive", context, intent);
+	}
+
+	public void setActionBar(ToolBar toolbar)
+	{
+		// TODO: Implement this method
+		mToolBar=toolbar;
+	}
+
+	@Override
+	public void setTitle(CharSequence title)
+	{
+		// TODO: Implement this method
+		if(mToolBar!=null)
+			mToolBar.setTitle(title);
+		super.setTitle(title);
 	}
 	
+	public void setIcon(Drawable icon)
+	{
+		if(mToolBar!=null)
+			mToolBar.setLogo(icon);
+		ActionBar ab = getActionBar();
+		if(ab!=null)
+			ab.setIcon(icon);
+	}
 	
 	@Override
 	public void onContentChanged()
@@ -556,9 +555,14 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 	@Override
 	protected void onDestroy()
 	{
+		if (mReceiver != null)
+			unregisterReceiver(mReceiver);
+		for (LuaWebView t:Webs)
+		{
+			t.destroy();
+		}
 		for (LuaThread t:threadList)
 		{
-			sendMsg(t.toString() + t.isRun);
 			if (t.isRun)
 				t.quit();
 		}
@@ -710,45 +714,140 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 
 	public int getWidth()
 	{
-		return getWindowManager().getDefaultDisplay().getWidth();
+		return getResources().getDisplayMetrics().widthPixels;
 	}
+
 	public int getHeight()
 	{
-		return getWindowManager().getDefaultDisplay().getHeight();
+		return getResources().getDisplayMetrics().heightPixels;
 	}
+
+
+	public boolean bindService(int flag)
+	{
+		ServiceConnection conn = new ServiceConnection(){
+
+			@Override
+			public void onServiceConnected(ComponentName comp, IBinder binder)
+			{
+				// TODO: Implement this method
+				runFunc("onServiceConnected", comp, ((LuaService.LuaBinder)binder).getService());
+			}
+
+			@Override
+			public void onServiceDisconnected(ComponentName comp)
+			{
+				// TODO: Implement this method
+				runFunc("onServiceDisconnected", comp);
+			}
+		};
+		return bindService(conn, flag);
+	}
+
+	public boolean bindService(ServiceConnection conn, int flag)
+	{
+		// TODO: Implement this method
+		Intent service=new Intent(this, LuaService.class);
+		service.putExtra("luaDir", luaDir);
+		service.putExtra("luaPath", luaPath);
+		return super.bindService(service, conn, flag);
+	}
+
+	public ComponentName startService()
+	{
+		return startService(null, null);
+	}
+
+	public ComponentName startService(Object[] arg)
+	{
+		return startService(null, arg);
+	}
+
+	public ComponentName startService(String path)
+	{
+		return startService(path, null);
+	}
+
+	public ComponentName startService(String path, Object[] arg)
+	{
+		// TODO: Implement this method
+		Intent intent=new Intent(this, LuaService.class);
+		intent.putExtra("luaDir", luaDir);
+		intent.putExtra("luaPath", luaPath);
+		if (path != null)
+		{
+			if (path.charAt(0) != '/')
+				intent.setData(Uri.parse("file://" + luaDir + "/" + path + ".lua"));
+			else
+				intent.setData(Uri.parse("file://" + path));
+		}
+		if (arg != null)
+			intent.putExtra("arg", arg);
+
+		return super.startService(intent);
+	}
+
 
 	public void newActivity(String path)
 	{
-		newActivity(1,path,null);
+		newActivity(1, path, null);
 	}
-	
+
 	public void newActivity(String path, Object[] arg)
 	{
-		newActivity(1,path,arg);
+		newActivity(1, path, arg);
 	}
-	
+
 	public void newActivity(int req, String path)
 	{
-		newActivity(req,path,null);
+		newActivity(req, path, null);
 	}
 
 	public void newActivity(int req, String path, Object[] arg)
 	{
 		Intent intent = new Intent(this, Main.class);
-		if (path.charAt(0)!='/')
-			if (isInAsset())
-				intent.setData(Uri.parse("file:/android_asset/" + path + ".lua"));
-			else
-				intent.setData(Uri.parse("file://" + luaDir + "/" + path + ".lua"));
+		if (path.charAt(0) != '/')
+			intent.setData(Uri.parse("file://" + luaDir + "/" + path + ".lua"));
 		else
 			intent.setData(Uri.parse("file://" + path));
 
-		if(arg!=null)
+		if (arg != null)
 			intent.putExtra("arg", arg);
 		startActivityForResult(intent, req);
 		overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
 	}
 
+	
+	public void newActivity(String path,int in,int out)
+	{
+		newActivity(1, path,in,out, null);
+	}
+
+	public void newActivity(String path,int in,int out, Object[] arg)
+	{
+		newActivity(1, path,in,out, arg);
+	}
+
+	public void newActivity(int req, String path,int in,int out)
+	{
+		newActivity(req, path,in,out, null);
+	}
+	
+	
+	public void newActivity(int req, String path,int in,int out, Object[] arg)
+	{
+		Intent intent = new Intent(this, Main.class);
+		if (path.charAt(0) != '/')
+			intent.setData(Uri.parse("file://" + luaDir + "/" + path + ".lua"));
+		else
+			intent.setData(Uri.parse("file://" + path));
+
+		if (arg != null)
+			intent.putExtra("arg", arg);
+		startActivityForResult(intent, req);
+		overridePendingTransition(in, out);
+	}
+	
 	public LuaAsyncTask newTask(LuaObject func) throws LuaException
 	{
 		return newTask(func, null, null);
@@ -786,26 +885,26 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		return new LuaTimer(this, func, arg);
 	}
 
-	
+
 	public Bitmap loadBitmap(String path) throws IOException
 	{
-		return LuaBitmap.getBitmap(this,path);
+		return LuaBitmap.getBitmap(this, path);
 	}
-	
+
 	public void setContentView(LuaObject layout) throws LuaException
 	{
-		setContentView(layout,null);
+		setContentView(layout, null);
 	}
-	
+
 	public void setContentView(LuaObject layout, LuaObject env) throws LuaException
 	{
 		// TODO: Implement this method
 		LuaObject loadlayout=L.getLuaObject("loadlayout");
-		View view=(View) loadlayout.call(layout,env);
+		View view=(View) loadlayout.call(layout, env);
 		super.setContentView(view);
 	}
-	
-	
+
+
 //初始化lua使用的Java函数
 	private void initLua() throws Exception
 	{
@@ -815,7 +914,7 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		L.setGlobal("activity");
 		L.getGlobal("activity");
 		L.setGlobal("this");
-
+		L.pushContext(this);
 		L.getGlobal("luajava"); 
 		L.pushString(luaExtDir);
 		L.setField(-2, "luaextdir");
@@ -828,36 +927,13 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 		JavaFunction print = new LuaPrint(this, L);
 		print.register("print");
 
-		JavaFunction assetLoader = new LuaAssetLoader(this, L); 
-
 		L.getGlobal("package"); 
-		L.getField(-1, "loaders"); 
-		int nLoaders = L.objLen(-1);
-		int idx=3;
-		if (isInAsset())
-			idx = 2;
-		for (int i=nLoaders;i >= idx;i--)
-		{
-			L.rawGetI(-1, i);
-			L.rawSetI(-2, i + 1);
-		}
-		L.pushJavaFunction(assetLoader); 
-		L.rawSetI(-2, idx);
-		L.pop(1);          
-
-		L.pushString(luaDir + "/?.lua;" + luaDir + "/lua/?.lua;" + luaDir + "/?/init.lua;");
+		L.pushString(luaLpath);
 		L.setField(-2, "path");
 		L.pushString(luaCpath);
 		L.setField(-2, "cpath");
 		L.pop(1);          
-		/*
-		 JavaFunction task = new newLuaAsyncTask(L);
-		 task.register("task");
 
-
-		 JavaFunction thread = new newLuaThread(L);
-		 thread.register("thread");
-		 */
 		JavaFunction set = new JavaFunction(L) {
 			@Override
 			public int execute() throws LuaException
@@ -901,20 +977,17 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 //运行lua脚本
 	public Object doFile(String filePath) 
 	{
-		return doFile(filePath,new Object[0]);
+		return doFile(filePath, new Object[0]);
 	}
-	
+
 	public Object doFile(String filePath, Object[] args) 
 	{
 		int ok = 0;
 		try
 		{
-			if (filePath.charAt(0)!='/')
-				if (isInAsset())
-					return doAsset(filePath);
-				else
-					filePath=luaDir + "/" + filePath;
-			
+			if (filePath.charAt(0) != '/')
+				filePath = luaDir + "/" + filePath;
+
 			L.setTop(0);
 			ok = L.LloadFile(filePath);
 
@@ -945,6 +1018,38 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 			setTitle(errorReason(ok));
 			setContentView(layout);
 			sendMsg(e.getMessage());
+			String s=e.getMessage();
+			String p="android.permission.";
+			int i=s.indexOf(p);
+			if (i > 0)
+			{
+				i=i+p.length();
+				int n=s.indexOf(".",i);
+				if(n>i)
+				{
+					String m=s.substring(i, n);
+					L.getGlobal("require");
+					L.pushString("permission");
+					L.pcall(1,0,0);
+					L.getGlobal("permission_info");
+					L.getField(-1,m);
+					if(L.isString(-1))
+						m=m+" ("+L.toString(-1)+")";
+					sendMsg("权限错误: " + m);
+					return null;
+				}
+			}
+			if (isUpdata)
+			{
+				/*LuaUtil.rmDir(new File(extDir));
+				LuaUtil.rmDir(new File(luaMdDir));
+				SharedPreferences info=getSharedPreferences("appInfo", 0);
+				SharedPreferences.Editor edit=info.edit();
+				edit.putLong("lastUpdateTime", 0);
+				edit.commit();*/
+				//sendMsg("初始化错误，请清除数据后重新启动程序。。。");
+			}
+
 		}
 
 		return null;
@@ -1244,11 +1349,7 @@ public class Main extends Activity implements LuaBroadcastReceiver.OnReceiveList
 					{
 
 						String data = msg.getData().getString("data");
-//							Toast.makeText(Main.this, data , Toast.LENGTH_SHORT).show();
 						showToast(data);
-//							msgbuilder.append(data);
-//							msgbuilder.append("\n");
-//							status.setText(msgbuilder.toString());
 						status.append(data + "\n");
 					}
 					break;

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest android:versionCode="300" android:versionName="3.0" package="com.androlua" xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest android:versionCode="310" android:versionName="3.1.160414" package="com.androlua" xmlns:android="http://schemas.android.com/apk/res/android">
 	<uses-sdk android:minSdkVersion="14" />
+	<uses-permission android:name="android.permission.CALL_PHONE"/>
+	<uses-permission android:name="android.permission.SEND_SMS"/>
 	<uses-permission android:name="android.permission.INSTALL_PACKAGES"/>
 	<uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 	<uses-permission android:name="android.permission.WRITE_CONTACTS"/>
@@ -37,6 +39,7 @@
 	<uses-permission android:name="android.permission.CAMERA"/>
 	<uses-permission android:name="android.permission.READ_FRAME_BUFFER" />
 	<uses-permission android:name="android.permission.PERSISTENT_ACTIVITY" />
+	<uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
 	<application android:icon="@drawable/icon"
 		android:label="AndroLua+"
 		android:largeHeap="true"
@@ -44,7 +47,7 @@
 		android:name="com.androlua.CrashApplication">
 		<activity 
 			android:name="com.androlua.Main"
-			android:theme="@android:style/Theme.Holo.Wallpaper.NoTitleBar"
+			android:theme="@style/WelcomeTheme"
 			android:screenOrientation="portrait"
 			android:windowSoftInputMode="adjustResize" >
 			<intent-filter >
@@ -81,15 +84,36 @@
 				<data  android:host = "*"  />
 				<data  android:pathPattern = ".*\\.luac"  />
 			</intent-filter >
+			<intent-filter >
+				<action  android:name = "android.intent.action.VIEW"  />
+				<category  android:name = "android.intent.category.DEFAULT"  />
+				<category  android:name = "android.intent.category.BROWSABLE"  />
+				<data  android:scheme = "file"  />
+				<data  android:mimeType = "*/*"  />
+				<data  android:host = "*"  />
+				<data  android:pathPattern = ".*\\.alp"  />
+			</intent-filter >
+			<intent-filter >
+				<action  android:name = "android.intent.action.VIEW"  />
+				<category  android:name = "android.intent.category.DEFAULT"  />
+				<category  android:name = "android.intent.category.BROWSABLE"  />
+				<data  android:scheme = "content"  />
+				<data  android:host = "*"  />
+				<data  android:pathPattern = ".*\\.alp"  />
+			</intent-filter >
 		</activity>
 		<activity
 			android:name="com.androlua.Welcome"
-			android:theme="@android:style/Theme.Holo.Light.NoActionBar"
+			android:theme="@style/WelcomeTheme"
 			android:screenOrientation="portrait" >
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN"/>
 				<category android:name="android.intent.category.LAUNCHER"/>
 			</intent-filter>
 		</activity>
+		<service
+			android:name="com.androlua.LuaService"
+			android:enabled="true" >
+		</service>
 	</application>
 </manifest>

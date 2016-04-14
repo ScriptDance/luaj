@@ -282,8 +282,11 @@ public class Lexer
 						if (lastType == LuaTokenTypes.ASSIGN && name.equals("require"))
 						{
 							language.addUserWord(lastName);
-							Pair p=tokens.get(tokens.size() - 3);
-							p.setSecond(NAME);
+							if(tokens.size()>=3)
+							{
+								Pair p=tokens.get(tokens.size() - 3);
+								p.setSecond(NAME);
+							}
 						}
 
 						lastName = name;

@@ -64,8 +64,24 @@ Java方法支持table与array，map与interface自动转换，
 打包自动分析使用的c模块，
 增加tointeger函数，
 setContentView支持布局表参数
-
-
+3.1.0
+化luajava错误提示，
+增加工程导出/导入，
+修复打开文件的bug，
+增加后台服务，
+优化错误提示，
+修复类型转换bug，
+增加导入dex函数，
+增加布局设计器，
+代码结构调整，
+增加List对象快速访问，
+nwwActivity支持指定切换动画，
+优化IDE编辑器对tab绘制效果，
+优化IDE界面及逻辑，
+布局文件结构调整，
+LuaArrayAdapter适配器支持布局表定义视图
+增加View类免context参数构建，
+增加LuaContext接口
 
 关于
 AndroLua是基于LuaJava开发的安卓平台轻量级脚本编程语言工具，既具有Lua简洁优雅的特质，又支持绝大部分安卓API，可以使你在手机上快速编写小型应用。
@@ -670,4 +686,24 @@ newTimer(func, arg)
 新建一个定时器，在线程中运行func函数，可以以表的形式传入arg，在func以unpack形式接收
 调用定时器的start(delay, period)开始定时器，stop()停止定时器，Enabled暂停恢复定时器，Period属性改变定时器间隔
 
+LICENSE:
+Androlua+ Copyright (C) 2015-2016 by Nirenr
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 

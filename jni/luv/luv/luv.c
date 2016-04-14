@@ -157,7 +157,7 @@ static const luaL_Reg luv_functions[] = {
   {"tty_get_winsize", luv_tty_get_winsize},
 
   // udp.c
-  /*
+  
   {"new_udp", luv_new_udp},
   {"udp_open", luv_udp_open},
   {"udp_bind", luv_udp_bind},
@@ -172,7 +172,7 @@ static const luaL_Reg luv_functions[] = {
   {"udp_try_send", luv_udp_try_send},
   {"udp_recv_start", luv_udp_recv_start},
   {"udp_recv_stop", luv_udp_recv_stop},
-*/
+
   // fs_event.c
   {"new_fs_event", luv_new_fs_event},
   {"fs_event_start", luv_fs_event_start},

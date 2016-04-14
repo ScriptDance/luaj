@@ -254,7 +254,7 @@ implements Document.TextFieldMetrics{
 	}
 	
 	public void format(){
-		CharSequence text=AutoComplete.format(createDocumentProvider().toString(), _autoIndentWidth);
+		CharSequence text=AutoIndent.format(createDocumentProvider().toString(), _autoIndentWidth);
 		_hDoc.beginBatchEdit();
 		_hDoc.deleteAt(0,_hDoc.docLength()-1,System.nanoTime());
 		_hDoc.insertBefore(text.toString().toCharArray(), 0, System.nanoTime());
@@ -269,7 +269,7 @@ implements Document.TextFieldMetrics{
 		_brush = new Paint();
 		_brush.setAntiAlias(true);
 		_brush.setTextSize(BASE_TEXT_SIZE_PIXELS);
-		setBackgroundColor(_colorScheme.getColor(Colorable.BACKGROUND));
+		//setBackgroundColor(_colorScheme.getColor(Colorable.BACKGROUND));
 		setLongClickable(true);
 		setFocusableInTouchMode(true);
 		setHapticFeedbackEnabled(true);
@@ -693,14 +693,15 @@ implements Document.TextFieldMetrics{
 			_brush.setColor(_colorScheme.getColor(Colorable.LINE_HIGHLIGHT));
 
 			int lineLength = Math.max(_xExtent, getContentWidth());
-			canvas.drawRect(0, y+1, lineLength, y+2, _brush);
+			//canvas.drawRect(0, y+1, lineLength, y+2, _brush);
+			drawTextBackground(canvas,0,_caretY,lineLength);
 			_brush.setColor(originalColor);
 		}
 	}
 
 	private int drawChar(Canvas canvas, char c, int paintX, int paintY){
 		int originalColor = _brush.getColor();
-
+		int charWidth = getAdvance(c);
 		switch(c){
 			case ' ':
 				if(_showNonPrinting){
@@ -728,6 +729,8 @@ implements Document.TextFieldMetrics{
 					canvas.drawText(Language.GLYPH_TAB, 0, 1, paintX, paintY, _brush);
 					_brush.setColor(originalColor);
 				}
+				int i=(paintX-_leftOffset)/getAdvance(' ')%_tabLength;
+				charWidth-=getAdvance(' ')*i;
 				break;
 
 			default:
@@ -736,7 +739,7 @@ implements Document.TextFieldMetrics{
 				break;
 		}
 
-		return getAdvance(c);
+		return charWidth;
 	}
 
 	// paintY is the baseline for text, NOT the top extent
@@ -1177,7 +1180,7 @@ implements Document.TextFieldMetrics{
 	 */
 	int getMaxScrollX(){
 		return Math.max(0,
-						_xExtent - getContentWidth() + _navMethod.getCaretBloat().right);
+						_xExtent - getContentWidth() + _navMethod.getCaretBloat().right+getAdvance('a'));
 	}
 
 	/**
@@ -2095,6 +2098,7 @@ implements Document.TextFieldMetrics{
 				default:
 					_hDoc.insertBefore(c, _caretPosition, System.nanoTime());
 					moveCaretRight(true);
+					_textLis.onAdd(c+"",_caretPosition,1);
 					
 					if(_hDoc.isWordWrap()){
 						if(originalOffset != _hDoc.getRowOffset(originalRow)){
@@ -2128,7 +2132,7 @@ implements Document.TextFieldMetrics{
 				++whitespaceCount;
 			}
 			
-			whitespaceCount+=_autoIndentWidth*AutoComplete.createAutoIndent(_hDoc.subSequence(startOfLine,_caretPosition-startOfLine));
+			whitespaceCount+=_autoIndentWidth*AutoIndent.createAutoIndent(_hDoc.subSequence(startOfLine,_caretPosition-startOfLine));
 			if(whitespaceCount<0)
 				return new char[]{Language.NEWLINE};
 			

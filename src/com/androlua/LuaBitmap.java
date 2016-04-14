@@ -46,7 +46,7 @@ public class LuaBitmap
 		return bitmap;
 	}
 
-    public static Bitmap getBitmap(Main main, String path) throws IOException
+    public static Bitmap getBitmap(LuaContext LuaContext, String path) throws IOException
 	{
 		
 		WeakReference<Bitmap> wRef=cache.get(path);
@@ -58,12 +58,13 @@ public class LuaBitmap
 		}
 
 		Bitmap bitmap;
-		if(path.charAt(0)!='/')
+		if(path.indexOf("http://")==0)
 		{
-			if(main.isInAsset())
-				bitmap = getAssetBitmap(main,path);
-			else
-				bitmap = getLoacalBitmap(main.luaDir+"/"+path);
+			bitmap = getHttpBitmap(path);
+		}
+		else if(path.charAt(0)!='/')
+		{
+			bitmap = getLoacalBitmap(LuaContext.getLuaDir()+"/"+path);
 		}
 		else
 		{

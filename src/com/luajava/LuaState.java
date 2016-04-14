@@ -160,7 +160,17 @@ public class LuaState
 		return (luaState != null) ? luaState.getPeer() : 0;
 	}
 
+	private android.content.Context mContext;
+	public void pushContext(android.content.Context context)
+	{
+		mContext=context;
+	}
 
+	public android.content.Context getContext()
+	{
+		return mContext;
+	}
+	
 	/********************* Lua Native Interface *************************/
 
 	private synchronized native CPtr _newstate();

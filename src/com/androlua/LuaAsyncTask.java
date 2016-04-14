@@ -9,45 +9,33 @@ public class LuaAsyncTask extends AsyncTask
 {
 
 	private LuaState L;
-	
-	private StringBuilder output = new StringBuilder();
-	
-	private Main mMain;
 
-	private String luaDir;
+	private LuaContext mLuaContext;
 
 	private byte[] mBuffer;
 
 	private LuaObject mCallback;
 
-	private String luaCpath;
-
 	private LuaObject mUpdate;
 
-	public LuaAsyncTask(Main main,String src,LuaObject callback) throws LuaException
+	public LuaAsyncTask(LuaContext luaContext,String src,LuaObject callback) throws LuaException
 	{
-		mMain=main;
-		luaDir=main.luaDir;
-		luaCpath=mMain.luaCpath;
+		mLuaContext=luaContext;
 		mBuffer=src.getBytes();
 		mCallback=callback;
 	}
 	
 	
-	public LuaAsyncTask(Main main,LuaObject func,LuaObject callback) throws LuaException
+	public LuaAsyncTask(LuaContext luaContext,LuaObject func,LuaObject callback) throws LuaException
 	{
-		mMain=main;
-		luaDir=main.luaDir;
-		luaCpath=mMain.luaCpath;
+		mLuaContext=luaContext;
 		mBuffer=func.dump();
 		mCallback=callback;
 	}
 
-	public LuaAsyncTask(Main main,LuaObject func,LuaObject update,LuaObject callback) throws LuaException
+	public LuaAsyncTask(LuaContext luaContext,LuaObject func,LuaObject update,LuaObject callback) throws LuaException
 	{
-		mMain=main;
-		luaDir=main.luaDir;
-		luaCpath=mMain.luaCpath;
+		mLuaContext=luaContext;
 		mBuffer=func.dump();
 		mUpdate=update;
 		mCallback=callback;
@@ -85,19 +73,27 @@ public class LuaAsyncTask extends AsyncTask
 	{
 		L = LuaStateFactory.newLuaState();
 		L.openLibs();
-		L.pushJavaObject(mMain);
-		L.setGlobal("activity");
+		L.pushJavaObject(mLuaContext);
+		if(mLuaContext instanceof Main)
+		{
+			L.setGlobal("activity");
+		}
+		else if(mLuaContext instanceof LuaService)
+		{
+			L.setGlobal("service");
+		}
 		L.pushJavaObject(this);
 		L.setGlobal("this");
+		L.pushContext(mLuaContext.getContext());
 		
 		L.getGlobal("luajava");
-		L.pushString(luaDir);
+		L.pushString(mLuaContext.getLuaDir());
 		L.setField(-2, "luadir"); 
 		L.pop(1);
 
 		try
 		{
-			JavaFunction print = new LuaPrint(mMain,L);
+			JavaFunction print = new LuaPrint(mLuaContext,L);
 			print.register("print");
 
 			JavaFunction update = new JavaFunction(L){
@@ -113,32 +109,17 @@ public class LuaAsyncTask extends AsyncTask
 			
 			update.register("update");
 			
-			JavaFunction assetLoader = new LuaAssetLoader(mMain,L); 
-
-			L.getGlobal("package");  
-			L.getField(-1, "loaders");
-			int nLoaders = L.objLen(-1);
-			int idx=3;
-			if(mMain.isInAsset())
-				idx=2;
-			for (int i=nLoaders;i >= idx;i--)
-			{
-				L.rawGetI(-1, i);
-				L.rawSetI(-2, i + 1);
-			}
-			L.pushJavaFunction(assetLoader); 
-			L.rawSetI(-2, idx);
-			L.pop(1);          
+			L.getGlobal("package");       
 			
-			L.pushString("./?.lua;" + luaDir + "/?.lua;" + luaDir + "/lua/?.lua;" + luaDir + "/?/init.lua;");
+			L.pushString(mLuaContext.getLuaLpath());
 			L.setField(-2, "path");
-			L.pushString(luaCpath);
+			L.pushString(mLuaContext.getLuaCpath());
 			L.setField(-2, "cpath");
 			L.pop(1); 
 		}
 		catch (LuaException e)
 		{
-			mMain.sendMsg(e.getMessage());
+			mLuaContext.sendMsg(e.getMessage());
 		}
 		try
 		{
@@ -170,7 +151,7 @@ public class LuaAsyncTask extends AsyncTask
 		} 
 		catch (LuaException e)
 		{			
-			mMain.sendMsg(e.getMessage());
+			mLuaContext.sendMsg(e.getMessage());
 		}
 
 
@@ -189,7 +170,7 @@ public class LuaAsyncTask extends AsyncTask
 		}
 		catch (LuaException e)
 		{
-			mMain.sendMsg(e.getMessage());
+			mLuaContext.sendMsg(e.getMessage());
 		}
 		super.onPostExecute(result);
 		L.gc(LuaState.LUA_GCCOLLECT, 1);
@@ -208,7 +189,7 @@ public class LuaAsyncTask extends AsyncTask
 		}
 		catch (LuaException e)
 		{
-			mMain.sendMsg(e.getMessage());
+			mLuaContext.sendMsg(e.getMessage());
 		}
 		super.onProgressUpdate(values);
 	}

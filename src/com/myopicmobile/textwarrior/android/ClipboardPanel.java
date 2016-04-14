@@ -83,6 +83,7 @@ public class ClipboardPanel
 				public void onDestroyActionMode(ActionMode p1)
 				{
 					// TODO: Implement this method
+					_textField.selectText(false);
 					_clipboardActionMode=null;
 				}
 			});
