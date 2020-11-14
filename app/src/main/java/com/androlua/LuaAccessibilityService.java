@@ -95,7 +95,6 @@ public class LuaAccessibilityService extends AccessibilityService {
         return mScreenHeight;
     }
 
-
     public static interface AccessibilityServiceCallbacks {
         public void onAccessibilityEvent(LuaAccessibilityService service,AccessibilityEvent event);
 

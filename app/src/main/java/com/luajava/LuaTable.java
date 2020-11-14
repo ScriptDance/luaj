@@ -182,8 +182,6 @@ public class LuaTable <K, V>extends LuaObject implements Map <K,V>{
 		return null;
 	}
 
-
-
 	protected LuaTable(LuaState L, String globalName) {
 		super(L, globalName);
 	}

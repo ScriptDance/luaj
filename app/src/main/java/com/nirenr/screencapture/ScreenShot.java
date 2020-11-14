@@ -26,7 +26,6 @@ import java.nio.ByteBuffer;
 
 import static android.content.Context.MEDIA_PROJECTION_SERVICE;
 
-
 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class ScreenShot {
 
